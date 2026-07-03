@@ -32,22 +32,23 @@
        line-height:1.55;color:var(--muted);margin:0 0 28px}
   .sub b{color:var(--ink);font-weight:600;font-style:normal}
   .controls{
-    display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;
-    background:var(--plate);border:1px solid var(--hair);border-radius:3px;padding:18px 20px;margin-bottom:26px;
+    display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;
+    background:var(--plate);border:1px solid var(--hair);border-radius:3px;padding:18px 20px 14px;margin-bottom:26px;
   }
+  .ctlnote{width:100%;font-size:13px;color:var(--muted);border-top:1px solid var(--hair2);padding-top:11px;margin-top:4px}
   .ctl{display:flex;flex-direction:column;gap:6px}
   .ctl label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
   input[type=number]{
     background:#fff;border:1px solid var(--hair);color:var(--ink);border-radius:2px;
-    height:40px;padding:0 11px;font-size:15px;outline:none;min-width:130px;font-family:inherit;
+    height:40px;padding:0 11px;font-size:15px;outline:none;width:170px;font-family:inherit;
     font-variant-numeric:tabular-nums;
   }
   input[type=number]:focus{border-color:var(--ink)}
   .amt-wrap{position:relative}
   .amt-wrap span{position:absolute;left:11px;top:9px;color:var(--faint)}
-  .amt-wrap input{padding-left:24px;min-width:150px}
+  .amt-wrap input{padding-left:24px}
   .toggle{display:flex;border:1px solid var(--hair);border-radius:2px;overflow:hidden;background:#fff;height:40px}
-  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 15px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit}
+  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 13px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit}
   .toggle button.on{background:var(--ink);color:var(--paper)}
   .toggle.real button.on{background:var(--ink)}
 
@@ -110,6 +111,8 @@
   @media(max-width:640px){.trapline .tl{width:120px}.trapline .tv{width:90px;font-size:13px}}
   .foot{color:var(--muted);font-size:12.5px;line-height:1.75;margin-top:6px}
   .foot code{background:var(--track);padding:1px 6px;border-radius:2px;color:var(--ink)}
+  .foot p{margin:0 0 13px}
+  .foot p:last-child{margin-bottom:0}
   .pill{display:inline-block;background:#fff;border:1px solid var(--hair);border-radius:999px;padding:3px 11px;font-size:11.5px;color:var(--muted);margin:0 6px 6px 0}
   .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:999px;padding:4px 12px;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
   .themeBtn:hover{color:var(--ink);border-color:var(--ink)}
@@ -142,12 +145,19 @@
       <div class="amt-wrap"><span>$</span><input id="amount" type="number" value="10000" min="0" step="1000"></div>
     </div>
     <div class="ctl">
-      <label>Monthly contribution <span class="info" data-tip="A fixed dollar amount added every month. It does NOT increase with inflation — you contribute the same $ in year 30 as in year 1. (An inflation-indexed option may come later.)">ⓘ</span></label>
+      <label>Monthly contribution</label>
       <div class="amt-wrap"><span>$</span><input id="monthly" type="number" value="0" min="0" step="100"></div>
     </div>
     <div class="ctl">
+      <label>Contribution style <span class="info" data-tip="Fixed $: the same dollar amount every month — the same $ in year 30 as in year 1, so inflation quietly shrinks your saving effort. Grows with inflation: you contribute this much in today’s buying power every month — the nominal deposit rises along each history’s actual CPI path, like savings tracking a salary.">ⓘ</span></label>
+      <div class="toggle" id="idxToggle">
+        <button data-idx="fixed" class="on" type="button">Fixed $</button>
+        <button data-idx="indexed" type="button">Grows with inflation</button>
+      </div>
+    </div>
+    <div class="ctl">
       <label>Years invested <span class="info" data-tip="5 to 100 — the full 1926–2025 record. The longer the window, the fewer distinct starting years there are to compare (at 100 there is exactly one).">ⓘ</span></label>
-      <input id="years" type="number" value="40" min="5" max="100" step="1" style="min-width:110px">
+      <input id="years" type="number" value="40" min="5" max="100" step="1">
     </div>
     <div class="ctl">
       <label>Dollars shown</label>
@@ -156,10 +166,7 @@
         <button data-mode="real">Real (today's $)</button>
       </div>
     </div>
-    <div class="ctl" style="flex:1;min-width:200px">
-      <label>&nbsp;</label>
-      <div class="muted" id="summary" style="font-size:13px"></div>
-    </div>
+    <div class="ctlnote" id="summary"></div>
   </div>
 
   <div class="cards" id="cards"></div>
@@ -182,7 +189,7 @@
     <p class="modeline" id="trapMode"></p>
     <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
       <div class="ctl"><label>Assume this % a year</label>
-        <input id="trapRateInput" type="number" step="0.1" style="min-width:120px"></div>
+        <input id="trapRateInput" type="number" step="0.1"></div>
       <div class="ctl"><label>Or click a rate computed live from Table 1</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="refchip" id="chipArith" data-tip="Calculated live from the 100 yearly returns in Table 1 (1926–2025), in the current Nominal/Real mode: add all 100 years’ returns, divide by 100. This is the ‘average return’ people quote — the classic finance-guru ~12% is exactly this number — but it does not compound.">avg of yearly returns → <b id="refArith"></b></button>
@@ -251,11 +258,12 @@
       <span class="pill">Inflation: BLS CPI-U (Dec-to-Dec)</span>
       <p>
         <b>Total return</b> = dividends reinvested each year (the return an investor actually earned).
-        Each "history" invests your plan at the start of a year and holds for the chosen number of years, using that era's real annual returns. Monthly contributions are added at the start of each month; because the source data is annual, each year's return &amp; inflation are split geometrically across its 12 months.<br>
-        <b>Real</b> strips out inflation and holds your starting stake at constant purchasing power, so every result is in <em>today's dollars</em> — what the money could actually buy now. Because the starting amount is the same for every history, the real results are <b>directly comparable across start years</b> (raw nominal dollars are not — each is inflated by a different amount over a different era). <b>Nominal</b> is the literal future statement number, before adjusting for inflation. <b>Return/yr</b> is the money-weighted return (IRR) — the single annual rate that grows every dollar, from the day it went in, into the final balance; with a pure lump sum it equals plain CAGR <code>(end/start)^(1/years)−1</code>. <b>Growth ×</b> = ending value ÷ money put in — in Real mode both sides are inflation-adjusted (each contribution valued at the purchasing power it had when contributed), so it reads as a true purchasing-power multiple; "lost purchasing power" and red bars use the same inflation-adjusted baseline.<br>
-        One statistical caveat: neighboring histories overlap (the 1950 and 1951 windows share 39 of 40 years), so the histories are not independent samples — counts like "3 of 61" describe how often something happened across start years, not 61 separate experiments.<br>
-        Returns cross-verified against the independent Damodaran (NYU Stern) S&amp;P 500 series (mean difference 0.38pp across 98 years). Inflation for 1926–1928 (&minus;1.1%, &minus;2.3%, &minus;1.2%) and 2025 (+2.7%) from BLS.<br>
-        <em>Not investment advice. Past performance does not predict future results — showing the full range is the whole point.</em>
+        Each "history" invests your plan at the start of a year and holds for the chosen number of years, using that era's real annual returns. Monthly contributions are added at the start of each month; because the source data is annual, each year's return &amp; inflation are split geometrically across its 12 months. With <b>“grows with inflation”</b> selected, each deposit is the entered amount in start-year purchasing power — the nominal deposit rises along that history's own CPI path (like savings tracking a salary); with “Fixed $”, the nominal deposit stays the same forever.</p>
+      <p>
+        <b>Real</b> strips out inflation and holds your starting stake at constant purchasing power, so every result is in <em>today's dollars</em> — what the money could actually buy now. Because the starting amount is the same for every history, the real results are <b>directly comparable across start years</b> (raw nominal dollars are not — each is inflated by a different amount over a different era). <b>Nominal</b> is the literal future statement number, before adjusting for inflation. <b>Return/yr</b> is the money-weighted return (IRR) — the single annual rate that grows every dollar, from the day it went in, into the final balance; with a pure lump sum it equals plain CAGR <code>(end/start)^(1/years)−1</code>. <b>Growth ×</b> = ending value ÷ money put in — in Real mode both sides are inflation-adjusted (each contribution valued at the purchasing power it had when contributed), so it reads as a true purchasing-power multiple; "lost purchasing power" and red bars use the same inflation-adjusted baseline.</p>
+      <p>One statistical caveat: neighboring histories overlap (the 1950 and 1951 windows share 39 of 40 years), so the histories are not independent samples — counts like "3 of 61" describe how often something happened across start years, not 61 separate experiments.</p>
+      <p>Returns cross-verified against the independent Damodaran (NYU Stern) S&amp;P 500 series (mean difference 0.38pp across 98 years). Inflation for 1926–1928 (&minus;1.1%, &minus;2.3%, &minus;1.2%) and 2025 (+2.7%) from BLS.</p>
+      <p><em>Not investment advice. Past performance does not predict future results — showing the full range is the whole point.</em>
       </p>
     </div>
   </div>
@@ -291,7 +299,7 @@ const INF = {
 };
 const FIRST=1926, LAST=2025;
 
-let mode='nominal', sortKey='label', sortDir=1;
+let mode='nominal', indexed=false, sortKey='label', sortDir=1;
 const $=s=>document.querySelector(s);
 // Per-theme chart palette (both validated for CVD safety & contrast on their surface).
 const CHART={
@@ -320,16 +328,18 @@ function inputs(){
   const P=Math.max(0,+$('#amount').value||0);
   const C=Math.max(0,+$('#monthly').value||0);
   let N=Math.round(+$('#years').value||40); N=Math.max(5,Math.min(100,N));
-  return {P,C,N};
+  return {P,C,N,idx:indexed};
 }
 // For every starting year: monthly-simulate, tracking nominal & real paths, endings, IRRs.
-function computeWindows(P,C,N){
-  const rows=[], has=P+C>0, invested=P+C*N*12;
+// idx=true: contributions are inflation-indexed — $C of start-year purchasing power each month,
+// so the nominal deposit is C*PI(t), following that window's own historical CPI path.
+function computeWindows(P,C,N,idx){
+  const rows=[], has=P+C>0;
   for(let s=FIRST; s+N-1<=LAST; s++){
-    let bal=0, PI=1, invReal=0; const pathNom=[P], pathReal=[P], fN=[], fR=[];
+    let bal=0, PI=1, invReal=0, invNom=0; const pathNom=[P], pathReal=[P], fN=[], fR=[];
     for(let t=0;t<N*12;t++){
-      const yr=s+((t/12)|0), inj=C+(t===0?P:0);
-      if(inj>0){ fN.push({t:t/12,cf:-inj}); fR.push({t:t/12,cf:-inj/PI}); invReal+=inj/PI; }
+      const yr=s+((t/12)|0), inj=(t===0?P:0)+(idx?C*PI:C);
+      if(inj>0){ fN.push({t:t/12,cf:-inj}); fR.push({t:t/12,cf:-inj/PI}); invReal+=inj/PI; invNom+=inj; }
       bal+=inj;
       bal*=Math.pow(1+RET[yr]/100,1/12);
       PI *=Math.pow(1+INF[yr]/100,1/12);
@@ -338,10 +348,11 @@ function computeWindows(P,C,N){
     const endNom=bal, endReal=bal/PI;
     fN.push({t:N,cf:endNom}); fR.push({t:N,cf:endReal});
     // investedReal: each contribution valued at its start-year purchasing power when it went in —
-    // the honest baseline for "did purchasing power grow" (equals `invested` for a pure lump sum).
-    rows.push({start:s,end:s+N,label:s+'–'+(s+N),endNom,endReal,invested,investedReal:invReal,
+    // the honest baseline for "did purchasing power grow". invNom: actual nominal dollars deposited
+    // (per-window when indexed, since each history has its own inflation path).
+    rows.push({start:s,end:s+N,label:s+'–'+(s+N),endNom,endReal,invested:invNom,investedReal:invReal,
       cagrNom:has?irr(fN):0, cagrReal:has?irr(fR):0, pathNom, pathReal,
-      mult:invested>0?endNom/invested:0, multReal:invReal>0?endReal/invReal:0, infl:PI-1});
+      mult:invNom>0?endNom/invNom:0, multReal:invReal>0?endReal/invReal:0, infl:PI-1});
   }
   return rows;
 }
@@ -378,10 +389,10 @@ function assumedRate(){
 // ---- RENDER ---------------------------------------------------------------
 let ROWS=[];
 function render(){
-  const {P,C,N}=inputs();
-  ROWS=computeWindows(P,C,N);
+  const {P,C,N,idx}=inputs();
+  ROWS=computeWindows(P,C,N,idx);
   const invested=P+C*N*12;
-  $('#summary').textContent=ROWS.length+' histories · '+N+'-yr hold · '+FIRST+'–'+LAST+(C>0?' · '+fmt$(invested)+' total in':'');
+  $('#summary').textContent=ROWS.length+' histories · '+N+'-yr hold · '+FIRST+'–'+LAST+(C>0?' · '+fmt$(invested)+(idx?" in (today's $)":' total in'):'');
   $('#tblCount').textContent='('+ROWS.length+' starting years)';
   $('#legMode').textContent=mode==='nominal'?'Nominal':'Real';
   $('#histDot').style.background=mode==='nominal'?'var(--accent)':'var(--accent2)';
@@ -420,9 +431,12 @@ function renderTrap(P,C,N){
   // the flat real rate implicitly keeps each $C at full purchasing power, while the replays
   // contribute a fixed nominal $C that inflation erodes. Flag it rather than let the gap
   // be misread as pure volatility drag.
-  const note = (C>0 && mode==='real')
-    ? `<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> in Real mode, much of this gap is <em>not</em> the flat-rate trap. A flat real rate quietly assumes every ${fmt$(C)} contribution keeps full purchasing power, while the replays contribute a fixed ${fmt$(C)} that inflation erodes over the years — so the two model different plans. With monthly contributions, judge by the replays and the cards, not any flat-rate calculator (which shares this blind spot).</div>`
-    : '';
+  const idx=indexed;
+  let note='';
+  if(C>0 && mode==='real' && !idx)
+    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> in Real mode, much of this gap is <em>not</em> the flat-rate trap. A flat real rate quietly assumes every ${fmt$(C)} contribution keeps full purchasing power, while the replays contribute a fixed ${fmt$(C)} that inflation erodes over the years — so the two model different plans. Tick “grows with inflation” up top to make this comparison apples-to-apples, and judge by the replays and the cards.</div>`;
+  else if(C>0 && mode==='nominal' && idx)
+    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> with “grows with inflation” checked, the replays deposit rising nominal amounts (following each era’s actual CPI), while a flat nominal rate assumes a fixed ${fmt$(C)} every month — so the flat line understates the money going in. Judge by the replays and the cards, or flip to Real where this comparison is apples-to-apples.</div>`;
   // one promise vs the four benchmark outcomes; delta = how each reality compares to the promise
   const bench=[
     {label:'Worst history ('+st.worst.start+')',  v:worst,       color:CH().red},
@@ -647,6 +661,13 @@ hcv.addEventListener('mouseleave',()=>htip.style.opacity=0);
 let renderTimer=null;
 const renderSoon=()=>{ clearTimeout(renderTimer); renderTimer=setTimeout(render,120); };
 ['amount','monthly','years','trapRateInput'].forEach(id=>$('#'+id).addEventListener('input',renderSoon));
+document.querySelectorAll('#idxToggle button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    indexed=b.dataset.idx==='indexed';
+    document.querySelectorAll('#idxToggle button').forEach(x=>x.classList.toggle('on',x===b));
+    render();
+  });
+});
 // hard-clamp the years field: cap immediately while typing, snap into [5,100] on blur
 $('#years').addEventListener('input',()=>{ if(+$('#years').value>100){$('#years').value=100;renderSoon();} });
 $('#years').addEventListener('change',()=>{ let v=Math.round(+$('#years').value||40); v=Math.max(5,Math.min(100,v)); $('#years').value=v; render(); });
