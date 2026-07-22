@@ -4,140 +4,209 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>S&P 500 Rolling-Window Return Simulator</title>
-<meta name="description" content="A compound interest calculator that uses real history: see how a lump sum or monthly plan would have fared starting in every year since 1926 — actual S&P 500 total returns, nominal and inflation-adjusted.">
+<meta name="description" content="A compound interest calculator that uses real history: see how a lump sum or monthly plan would have fared starting in every year since 1926, using actual S&P 500 total returns, nominal and inflation-adjusted.">
+<script>
+// Set the theme before first paint so a dark-mode visitor never sees a light flash.
+// Mirrors the logic in the main script; localStorage wins over the OS preference.
+(function(){var t=null;try{t=localStorage.getItem('rrsim-theme');}catch(e){}
+ document.documentElement.setAttribute('data-theme',t||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* ---- TOKENS -------------------------------------------------------------
+     Light is the base set; dark is applied by [data-theme="dark"] on <html>,
+     which is set either from prefers-color-scheme or from the manual toggle.
+     Every surface/foreground pair below is verified >= WCAG AA 4.5:1 for text
+     at the sizes it is actually used at, in BOTH themes.
+     Radius rule (documented, applied everywhere): controls 2px, surfaces 3px,
+     pills 999px. No other radii.
+     ------------------------------------------------------------------------ */
   :root{
-    --paper:#f7f5ef; --plate:#fffefb; --ink:#1c1a15; --muted:#6e6a60; --faint:#95917f;
+    --paper:#f7f5ef; --plate:#fffefb; --ink:#1c1a15; --muted:#6e6a60;
     --hair:#e2ddcf; --hair2:#edeadf; --track:#f0ede2;
-    --red:#b0392e; --blue:#2b5fad; --green:#1e8a54; --amber:#a06e08;
-    --accent:#2b5fad; --accent2:#1e8a54; --bad:#b0392e; --good:#1e8a54;
+    --field:#ffffff; --wash:#faf3e2; --shadow:0 6px 20px rgba(28,26,21,.10);
+    --red:#b0392e; --blue:#2b5fad; --green:#1c804e; --amber:#956607;
+    --accent:#2b5fad; --accent2:#1c804e; --bad:#b0392e; --good:#1c804e;
+
+    /* spacing scale: the only vertical/horizontal steps used on this page */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s8:72px;
+
+    /* type scale: 9 steps, down from 13 ad-hoc sizes */
+    --t-label:10.5px; --t-micro:11.5px; --t-xs:12.5px; --t-sm:13.5px;
+    --t-body:15px; --t-lead:17.5px; --t-h2:21px; --t-stat:27px; --t-h1:38px;
+
+    --r-ctl:2px; --r-surface:3px; --r-pill:999px;
+    --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  }
+  :root[data-theme="dark"]{
+    --paper:#14120e; --plate:#1c1a15; --ink:#eae5d8; --muted:#a29b8a;
+    --hair:#343027; --hair2:#2a2620; --track:#2a2620;
+    --field:#1c1a15; --wash:#251e0e; --shadow:0 6px 20px rgba(0,0,0,.55);
+    --red:#d96a5b; --blue:#5f8ad4; --green:#3fa871; --amber:#b58429;
+    --accent:#5f8ad4; --accent2:#3fa871; --bad:#d96a5b; --good:#3fa871;
   }
   *{box-sizing:border-box}
   body{
     margin:0; background:var(--paper); color:var(--ink);
-    font:15px/1.65 "IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
-    padding:34px 24px 90px;
+    font:var(--t-body)/1.65 "IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    padding:var(--s6) var(--s5) var(--s8);
   }
   .wrap{max-width:1060px;margin:0 auto}
-  .mast{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
-    border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:20px;
-    font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mast{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:var(--s3);margin-bottom:var(--s5);
+    font-size:var(--t-micro);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
   .mast b{color:var(--ink);font-weight:600}
-  h1{font-family:"Newsreader",Georgia,"Times New Roman",serif;font-weight:600;
-     font-size:38px;line-height:1.15;letter-spacing:-.01em;margin:14px 0 10px}
-  .sub{font-family:"Newsreader",Georgia,serif;font-style:italic;font-size:17.5px;
-       line-height:1.55;color:var(--muted);margin:0 0 28px}
+  h1{font-family:var(--serif);font-weight:600;
+     font-size:var(--t-h1);line-height:1.15;letter-spacing:-.01em;margin:var(--s4) 0 var(--s3)}
+  .sub{font-family:var(--serif);font-style:italic;font-size:var(--t-lead);
+       line-height:1.55;color:var(--muted);margin:0 0 var(--s6)}
   .sub b{color:var(--ink);font-weight:600;font-style:normal}
   .controls{
-    display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;
-    background:var(--plate);border:1px solid var(--hair);border-radius:3px;padding:18px 20px 14px;margin-bottom:26px;
+    display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-end;
+    background:var(--plate);border:1px solid var(--hair);border-radius:var(--r-surface);
+    padding:var(--s4) var(--s5);margin-bottom:var(--s5);
   }
-  .ctlnote{width:100%;font-size:13px;color:var(--muted);border-top:1px solid var(--hair2);padding-top:11px;margin-top:4px}
-  .ctl{display:flex;flex-direction:column;gap:6px}
-  .ctl label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+  .ctlnote{width:100%;font-size:var(--t-sm);color:var(--muted);border-top:1px solid var(--hair2);padding-top:var(--s3);margin-top:0}
+  .ctl{display:flex;flex-direction:column;gap:var(--s2)}
+  .ctl label{font-size:var(--t-label);color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
   input[type=number]{
-    background:#fff;border:1px solid var(--hair);color:var(--ink);border-radius:2px;
-    height:40px;padding:0 11px;font-size:15px;outline:none;width:170px;font-family:inherit;
+    background:var(--field);border:1px solid var(--hair);color:var(--ink);border-radius:var(--r-ctl);
+    height:40px;padding:0 var(--s3);font-size:var(--t-body);outline:none;width:170px;font-family:inherit;
     font-variant-numeric:tabular-nums;
   }
   input[type=number]:focus{border-color:var(--ink)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .amt-wrap{position:relative}
-  .amt-wrap span{position:absolute;left:11px;top:9px;color:var(--faint)}
-  .amt-wrap input{padding-left:24px}
-  .toggle{display:flex;border:1px solid var(--hair);border-radius:2px;overflow:hidden;background:#fff;height:40px}
-  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 13px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit}
+  .amt-wrap span{position:absolute;left:var(--s3);top:9px;color:var(--muted)}
+  .amt-wrap input{padding-left:26px}
+  .toggle{display:flex;border:1px solid var(--hair);border-radius:var(--r-ctl);overflow:hidden;background:var(--field);height:40px}
+  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 var(--s3);cursor:pointer;font-size:var(--t-sm);font-weight:500;font-family:inherit}
+  .toggle button:hover{color:var(--ink)}
   .toggle button.on{background:var(--ink);color:var(--paper)}
   .toggle.real button.on{background:var(--ink)}
 
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--hair);border-radius:3px;background:var(--plate);margin-bottom:26px;overflow:hidden}
-  .card{padding:16px 18px;border-left:1px solid var(--hair)}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--hair);border-radius:var(--r-surface);background:var(--plate);margin-bottom:var(--s5);overflow:hidden}
+  .card{padding:var(--s4) var(--s5);border-left:1px solid var(--hair)}
   .card:first-child{border-left:0}
-  .card .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
-  .card .v{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:27px;letter-spacing:-.01em;font-variant-numeric:lining-nums}
-  .card .cagr{font-size:12.5px;color:var(--muted);margin-top:4px}
-  .card .win{font-size:11.5px;color:var(--faint);margin-top:8px}
+  .card .k{font-size:var(--t-label);color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:var(--s2)}
+  .card .v{font-family:var(--serif);font-weight:600;font-size:var(--t-stat);letter-spacing:-.01em;font-variant-numeric:lining-nums tabular-nums}
+  .card .cagr{font-size:var(--t-xs);color:var(--muted);margin-top:var(--s1)}
+  .card .win{font-size:var(--t-micro);color:var(--muted);margin-top:var(--s2)}
   .card.worst .v{color:var(--red)}
   .card.best .v{color:var(--green)}
 
-  .panel{background:var(--plate);border:1px solid var(--hair);border-radius:3px;padding:22px 24px 20px;margin-bottom:26px}
-  .fig{display:block;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
-  .panel h2{font-family:"Newsreader",Georgia,serif;font-size:21px;font-weight:600;margin:0 0 6px}
-  .panel .hint{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0 0 16px}
+  .panel{background:var(--plate);border:1px solid var(--hair);border-radius:var(--r-surface);padding:var(--s5);margin-bottom:var(--s5)}
+  .fig{display:block;font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:var(--s1)}
+  .panel h2{font-family:var(--serif);font-size:var(--t-h2);font-weight:600;margin:0 0 var(--s2);line-height:1.25}
+  .panel .hint{color:var(--muted);font-size:var(--t-sm);line-height:1.6;margin:0 0 var(--s4)}
   canvas{width:100%;max-width:100%;display:block}
   .chartwrap{position:relative}
   .tip{
-    position:absolute;pointer-events:none;background:#fff;border:1px solid var(--hair);
-    border-radius:3px;padding:9px 11px;font-size:12.5px;color:var(--ink);opacity:0;transition:opacity .08s;white-space:nowrap;z-index:5;
-    box-shadow:0 6px 20px rgba(28,26,21,.10);font-variant-numeric:tabular-nums;
+    position:absolute;pointer-events:none;background:var(--field);border:1px solid var(--hair);
+    border-radius:var(--r-surface);padding:var(--s2) var(--s3);font-size:var(--t-xs);color:var(--ink);
+    opacity:0;transition:opacity .08s;white-space:nowrap;z-index:5;
+    box-shadow:var(--shadow);font-variant-numeric:tabular-nums;
   }
-  .legend{display:flex;gap:16px;margin-top:12px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
-  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  .legend{display:flex;gap:var(--s4);margin-top:var(--s3);font-size:var(--t-xs);color:var(--muted);flex-wrap:wrap}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:var(--r-ctl);margin-right:var(--s2);vertical-align:-1px}
 
-  table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
-  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--hair2)}
+  table{width:100%;border-collapse:collapse;font-size:var(--t-sm);font-variant-numeric:tabular-nums}
+  th,td{padding:var(--s2) var(--s3);text-align:right;border-bottom:1px solid var(--hair2)}
   th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--plate);border-bottom:2px solid var(--ink)}
+  th{color:var(--muted);font-weight:600;font-size:var(--t-label);text-transform:uppercase;letter-spacing:.1em;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--plate);border-bottom:2px solid var(--ink)}
   th:hover{color:var(--ink)}
   tbody tr:hover{background:var(--paper)}
   td.pos{color:var(--good)}td.neg{color:var(--bad)}
   .tablewrap{max-height:460px;overflow:auto}
+  .sortbar{display:none;gap:var(--s2);align-items:flex-end;margin-bottom:var(--s4);flex-wrap:wrap}
+  .sortbar select{background:var(--field);border:1px solid var(--hair);color:var(--ink);border-radius:var(--r-ctl);
+    height:40px;padding:0 var(--s2);font-family:inherit;font-size:var(--t-sm)}
+  .sortbar button{background:var(--field);border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-ctl);
+    height:40px;padding:0 var(--s3);font-family:inherit;font-size:var(--t-sm);cursor:pointer}
+  .sortbar button:hover{color:var(--ink);border-color:var(--ink)}
   .muted{color:var(--muted)}
-  .trapgrid{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
-  .trapline{display:flex;align-items:center;gap:12px}
-  .trapline .tl{width:220px;font-size:13px;color:var(--muted);flex:none;text-align:right}
-  .tbar{flex:1;background:var(--track);border-radius:2px;height:24px;overflow:hidden}
+  .trapgrid{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s4)}
+  .trapline{display:flex;align-items:center;gap:var(--s3)}
+  .trapline .tl{width:220px;font-size:var(--t-sm);color:var(--muted);flex:none;text-align:right}
+  .tbar{flex:1;background:var(--track);border-radius:var(--r-ctl);height:24px;overflow:hidden}
   .tfill{height:100%;transition:width .25s}
-  .trapline .tv{width:120px;flex:none;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
-  .traperr{font-size:14px;line-height:1.65;color:var(--ink);background:#faf3e2;border-left:3px solid var(--amber);border-radius:0 3px 3px 0;padding:12px 16px}
+  .trapline .tv{width:120px;flex:none;font-weight:600;font-size:var(--t-body);font-variant-numeric:tabular-nums}
+  .trapline .td{width:120px;flex:none;font-size:var(--t-xs)}
+  .traperr{font-size:var(--t-body);line-height:1.65;color:var(--ink);background:var(--wash);border-left:3px solid var(--amber);border-radius:0 var(--r-surface) var(--r-surface) 0;padding:var(--s3) var(--s4)}
   .traperr b{color:var(--amber)}
-  .refchip{background:#fff;border:1px solid var(--hair);color:var(--muted);border-radius:999px;height:40px;display:inline-flex;align-items:center;gap:5px;padding:0 15px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .refchip{background:var(--field);border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-pill);height:40px;display:inline-flex;align-items:center;gap:var(--s1);padding:0 var(--s4);font-size:var(--t-xs);cursor:pointer;font-family:inherit}
   .refchip:hover{color:var(--ink);border-color:var(--ink)}
+  .refchip:active{transform:translateY(1px)}
   .refchip b{color:var(--blue);font-variant-numeric:tabular-nums}
-  .info{color:var(--faint);cursor:help;font-style:normal}
+  .info{color:var(--muted);cursor:help;font-style:normal}
   [data-tip]{position:relative}
   [data-tip]::after{
-    content:attr(data-tip);position:absolute;left:0;top:calc(100% + 8px);z-index:20;
-    background:var(--plate);color:var(--ink);border:1px solid var(--hair);border-radius:3px;
-    padding:10px 12px;font-size:12.5px;line-height:1.55;width:300px;white-space:normal;
-    box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;visibility:hidden;pointer-events:none;
+    content:attr(data-tip);position:absolute;left:0;top:calc(100% + var(--s2));z-index:20;
+    background:var(--plate);color:var(--ink);border:1px solid var(--hair);border-radius:var(--r-surface);
+    padding:var(--s3);font-size:var(--t-xs);line-height:1.55;width:300px;max-width:min(300px,72vw);white-space:normal;
+    box-shadow:var(--shadow);opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .12s;text-transform:none;letter-spacing:normal;font-weight:400;text-align:left;
   }
-  [data-tip]:hover::after{opacity:1;visibility:visible}
+  [data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;visibility:visible}
   [data-tip].tip-right::after{left:auto;right:0}
-  .modeline{font-size:13px;color:var(--muted);margin:0 0 14px}
-  @media(max-width:640px){.trapline .tl{width:120px}.trapline .tv{width:90px;font-size:13px}}
-  .foot{color:var(--muted);font-size:12.5px;line-height:1.75;margin-top:6px}
-  .foot code{background:var(--track);padding:1px 6px;border-radius:2px;color:var(--ink)}
-  .foot p{margin:0 0 13px}
+  .modeline{font-size:var(--t-sm);color:var(--muted);margin:0 0 var(--s3)}
+  .foot{color:var(--muted);font-size:var(--t-xs);line-height:1.75;margin-top:var(--s2)}
+  .foot code{background:var(--track);padding:1px var(--s2);border-radius:var(--r-ctl);color:var(--ink)}
+  .foot p{margin:0 0 var(--s3)}
   .foot p:last-child{margin-bottom:0}
-  .pill{display:inline-block;background:#fff;border:1px solid var(--hair);border-radius:999px;padding:3px 11px;font-size:11.5px;color:var(--muted);margin:0 6px 6px 0}
-  .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:999px;padding:4px 12px;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+  .pill{display:inline-block;background:var(--field);border:1px solid var(--hair);border-radius:var(--r-pill);padding:3px var(--s3);font-size:var(--t-micro);color:var(--muted);margin:0 var(--s2) var(--s2) 0}
+  .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-pill);padding:var(--s1) var(--s3);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
   .themeBtn:hover{color:var(--ink);border-color:var(--ink)}
-  body.dark{
-    --paper:#14120e; --plate:#1c1a15; --ink:#eae5d8; --muted:#a29b8a; --faint:#7c7667;
-    --hair:#343027; --hair2:#2a2620; --track:#2a2620;
-    --red:#d96a5b; --blue:#5f8ad4; --green:#3fa871; --amber:#b58429;
-    --accent:#5f8ad4; --accent2:#3fa871; --bad:#d96a5b; --good:#3fa871;
-  }
-  body.dark input[type=number],body.dark .toggle,body.dark .refchip,body.dark .pill{background:var(--plate)}
-  body.dark .tip{background:var(--plate);box-shadow:0 6px 20px rgba(0,0,0,.55)}
-  body.dark .traperr{background:#251e0e}
+  .themeBtn:active{transform:translateY(1px)}
+
   @media(max-width:760px){
     .cards{grid-template-columns:repeat(2,1fr)}
     .card:nth-child(odd){border-left:0}
     .card:nth-child(n+3){border-top:1px solid var(--hair)}
-    h1{font-size:30px}
+    h1{font-size:var(--t-stat)}
+    body{padding:var(--s5) var(--s4) var(--s6)}
+    .panel,.controls{padding:var(--s4)}
+  }
+  @media(max-width:640px){
+    .trapline{flex-wrap:wrap;gap:var(--s2)}
+    .trapline .tl{width:100%;text-align:left;order:1}
+    .tbar{order:3;flex-basis:100%;height:14px}
+    .trapline .tv{order:2;width:auto;flex:1}
+    .trapline .td{order:2;width:auto;text-align:right}
+
+    /* Lever 6: the 7-column history table is unusable below 640px.
+       Each row becomes a labelled block; sorting moves to .sortbar so the
+       feature survives the collapse (the <th> handlers are hidden, not lost). */
+    .sortbar{display:flex}
+    .tablewrap{max-height:none;overflow:visible}
+    #tbl thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    #tbl,#tbl tbody,#tbl tr,#tbl td{display:block;width:100%}
+    #tbl tr{border:1px solid var(--hair);border-radius:var(--r-surface);background:var(--plate);
+      padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
+    #tbl tr:hover{background:var(--plate)}
+    #tbl td{border:0;padding:var(--s1) 0;display:flex;justify-content:space-between;align-items:baseline;gap:var(--s4);text-align:right}
+    #tbl td::before{content:attr(data-label);color:var(--muted);font-size:var(--t-label);font-weight:600;
+      font-family:"IBM Plex Sans",Helvetica,Arial,sans-serif;
+      text-transform:uppercase;letter-spacing:.1em;text-align:left;flex:none}
+    #tbl td:first-child{font-family:var(--serif);font-size:var(--t-lead);font-weight:600;
+      border-bottom:1px solid var(--hair2);padding-bottom:var(--s2);margin-bottom:var(--s2)}
+  }
+
+  /* Section 6.B: MOTION_INTENSITY 3 is hover/active feedback only, but every
+     transition on the page still collapses under reduced-motion. */
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+    .refchip:active,.themeBtn:active{transform:none}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="mast"><span><b>Finance Tools</b> · Market History</span><span style="display:flex;gap:14px;align-items:center"><span>No. 001 — 1926–2025</span><button class="themeBtn" id="themeBtn" type="button">Light mode</button></span></div>
+  <div class="mast"><span><b>Finance Tools</b> · Market History</span><span style="display:flex;gap:var(--s4);align-items:center"><span>1926 to 2025</span><button class="themeBtn" id="themeBtn" type="button">Light mode</button></span></div>
   <h1>S&P 500 Rolling-Window Return Simulator</h1>
-  <p class="sub">A compound-growth calculator that replays <b>history</b> instead of assuming a flat rate. Pick a plan — a lump sum, monthly contributions, and how many years you'd stay invested — and see how it would have turned out starting in <b>every year since 1926</b>, using actual annual S&P total returns (dividends reinvested).</p>
+  <p class="sub">A compound-growth calculator that replays <b>history</b> instead of assuming a flat rate. Pick a plan (a lump sum, monthly contributions, and how many years you'd stay invested) and see how it would have turned out starting in <b>every year since 1926</b>, using actual annual S&P total returns with dividends reinvested.</p>
 
   <div class="controls">
     <div class="ctl">
@@ -149,21 +218,21 @@
       <div class="amt-wrap"><span>$</span><input id="monthly" type="number" value="0" min="0" step="100"></div>
     </div>
     <div class="ctl">
-      <label>Contribution style <span class="info" data-tip="Fixed $: the same dollar amount every month — the same $ in year 30 as in year 1, so inflation quietly shrinks your saving effort. Grows with inflation: you contribute this much in today’s buying power every month — the nominal deposit rises along each history’s actual CPI path, like savings tracking a salary.">ⓘ</span></label>
+      <label>Contribution style <span class="info" tabindex="0" role="note" data-tip="Fixed $: the same dollar amount every month, so the same $ in year 30 as in year 1, and inflation quietly shrinks your saving effort. Grows with inflation: you contribute this much in today’s buying power every month, so the deposit rises along each history’s actual CPI path, like savings tracking a salary.">ⓘ</span></label>
       <div class="toggle" id="idxToggle">
         <button data-idx="fixed" class="on" type="button">Fixed $</button>
         <button data-idx="indexed" type="button">Grows with inflation</button>
       </div>
     </div>
     <div class="ctl">
-      <label>Years invested <span class="info" data-tip="5 to 100 — the full 1926–2025 record. The longer the window, the fewer distinct starting years there are to compare (at 100 there is exactly one).">ⓘ</span></label>
+      <label>Years invested <span class="info" tabindex="0" role="note" data-tip="5 to 100, within the full 1926 to 2025 record. The longer the window, the fewer distinct starting years there are to compare (at 100 there is exactly one).">ⓘ</span></label>
       <input id="years" type="number" value="40" min="5" max="100" step="1">
     </div>
     <div class="ctl">
-      <label>Dollars shown</label>
+      <label>Dollars shown <span class="info" tabindex="0" role="note" data-tip="Nominal: the literal number that would show on a statement, before adjusting for inflation. Real: the same money expressed in today’s buying power, so results from 1930 and 1990 can be compared like for like.">ⓘ</span></label>
       <div class="toggle" id="modeToggle">
-        <button data-mode="nominal" class="on">Nominal</button>
-        <button data-mode="real">Real (today's $)</button>
+        <button data-mode="nominal" class="on" type="button">Nominal</button>
+        <button data-mode="real" type="button">Real (today's $)</button>
       </div>
     </div>
     <div class="ctlnote" id="summary"></div>
@@ -172,9 +241,8 @@
   <div class="cards" id="cards"></div>
 
   <div class="panel">
-    <span class="fig">Fig. 1</span>
-    <h2>Growth over time — every history replayed</h2>
-    <p class="hint">Each faint line is your plan run through one historical starting year, with its <em>actual</em> year-by-year crashes and booms. The bold lines are the <span style="color:var(--red)">worst</span>, <span style="color:var(--blue)">median</span>, and <span style="color:var(--green)">best</span> endings; the dashed <span style="color:var(--amber)">amber</span> line compounds whatever flat rate you set in the trap section below — notice how one straight rate can't hug the real, bumpy paths. The bumps are the point — that's the ride you'd actually sit through.</p>
+    <h2>Growth over time, every history replayed</h2>
+    <p class="hint">Each faint line is your plan run through one historical starting year, with its <em>actual</em> year-by-year crashes and booms. The bold lines are the <span style="color:var(--red)">worst</span>, <span style="color:var(--blue)">median</span>, and <span style="color:var(--green)">best</span> endings. The dashed <span style="color:var(--amber)">amber</span> line compounds whatever flat rate you set in the trap section below: notice how one straight rate can't hug the real, bumpy paths. The bumps are the point, because that's the ride you'd actually sit through.</p>
     <div class="chartwrap">
       <canvas id="growth" height="340"></canvas>
       <div class="tip" id="gtip"></div>
@@ -183,17 +251,16 @@
   </div>
 
   <div class="panel">
-    <span class="fig">Fig. 2</span>
-    <h2>The “average return” trap — why any single “X% a year” misleads</h2>
-    <p class="hint">Type any flat annual return (that's also the dashed amber line above) and see the single promise it makes — then how the <b>worst, median, best, and average</b> real histories compare to that promise. Averaging bumpy returns into one number can't match reality: a −37% year like 2008 needs a +59% year just to break even. Try the two numbers people actually quote (click a chip):</p>
+    <h2>The “average return” trap, or why any single “X% a year” misleads</h2>
+    <p class="hint">Type any flat annual return (that's also the dashed amber line above) and see the single promise it makes, then how the <b>worst, median, best, and average</b> real histories compare to that promise. Averaging bumpy returns into one number can't match reality: a −37% year like 2008 needs a +59% year just to break even. Try the two numbers people actually quote (click a chip):</p>
     <p class="modeline" id="trapMode"></p>
     <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
       <div class="ctl"><label>Assume this % a year</label>
         <input id="trapRateInput" type="number" step="0.1"></div>
       <div class="ctl"><label>Or click a rate computed live from Table 1</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="refchip" id="chipArith" data-tip="Calculated live from the 100 yearly returns in Table 1 (1926–2025), in the current Nominal/Real mode: add all 100 years’ returns, divide by 100. This is the ‘average return’ people quote — the classic finance-guru ~12% is exactly this number — but it does not compound.">avg of yearly returns → <b id="refArith"></b></button>
-          <button class="refchip tip-right" id="chipGeo" data-tip="Calculated live: the single rate that, compounded for all 100 years, exactly reproduces the 1926–2025 history (the geometric mean), in the current Nominal/Real mode. Always lower than the simple average — that gap is volatility drag.">true long-run CAGR → <b id="refGeo"></b></button>
+        <div style="display:flex;gap:var(--s2);flex-wrap:wrap">
+          <button class="refchip" id="chipArith" type="button" data-tip="Calculated live from the 100 yearly returns in Table 1 (1926 to 2025), in the current Nominal or Real mode: add all 100 years’ returns, then divide by 100. This is the ‘average return’ people quote, and the classic finance-guru figure near 12% is exactly this number, but it does not compound.">average of the yearly returns → <b id="refArith"></b></button>
+          <button class="refchip tip-right" id="chipGeo" type="button" data-tip="Calculated live: the single rate that, compounded for all 100 years, exactly reproduces the 1926 to 2025 history, in the current Nominal or Real mode. Statisticians call it the geometric mean. It is always lower than the simple average, and that gap is the cost of volatility.">the rate that actually compounded → <b id="refGeo"></b></button>
         </div>
       </div>
     </div>
@@ -201,9 +268,8 @@
   </div>
 
   <div class="panel">
-    <span class="fig">Fig. 3</span>
     <h2>Ending value by start year</h2>
-    <p class="hint">Each bar is one history's ending value, lined up by the year it started — so you can see which eras were lucky or unlucky as a timeline. <span style="color:var(--red)">Red</span> bars ended below what you put in. Dashed <span style="color:var(--amber)">amber</span> = median.</p>
+    <p class="hint">Each bar is one history's ending value, lined up by the year it started, so you can see which eras were lucky or unlucky as a timeline. <span style="color:var(--red)">Red</span> bars ended below what you put in. The dashed <span style="color:var(--amber)">amber</span> line is the median.</p>
     <div class="chartwrap">
       <canvas id="bars" height="320"></canvas>
       <div class="tip" id="btip"></div>
@@ -216,7 +282,6 @@
   </div>
 
   <div class="panel">
-    <span class="fig">Fig. 4</span>
     <h2>Range of outcomes</h2>
     <p class="hint">How often each annualized return occurred across all the histories. A tall middle means most starting years clustered near it; a wide spread means timing luck mattered a lot. Amber bar = the median.</p>
     <div class="chartwrap">
@@ -232,8 +297,15 @@
 
   <div class="panel">
     <span class="fig">Table 1</span>
-    <h2>Every history <span class="muted" style="font-weight:400;font-size:13px" id="tblCount"></span></h2>
-    <p class="hint">One row per starting year. Click a header to sort. Return/yr = money-weighted annual return; Growth × = ending value ÷ total dollars you put in.</p>
+    <h2>Every history <span class="muted" style="font-weight:400;font-size:var(--t-sm)" id="tblCount"></span></h2>
+    <p class="hint">One row per starting year. Click a header to sort. <b>Return/yr</b> is the steady annual rate that would turn every dollar you put in, counted from the day it went in, into the final balance. <b>Growth ×</b> is the ending value divided by the total dollars you put in, so 3× means you ended with three times what you contributed.</p>
+    <div class="sortbar">
+      <div class="ctl" style="flex:1;min-width:180px">
+        <label for="mobileSort">Sort by</label>
+        <select id="mobileSort"></select>
+      </div>
+      <button id="mobileSortDir" type="button" aria-live="polite">Ascending</button>
+    </div>
     <div class="tablewrap">
       <table id="tbl">
         <thead><tr>
@@ -251,19 +323,18 @@
   </div>
 
   <div class="panel">
-    <span class="fig">Notes</span>
     <h2>Data &amp; method</h2>
     <div class="foot">
       <span class="pill">Returns: Ibbotson/Morningstar SBBI U.S. Large-Cap total return</span>
       <span class="pill">Inflation: BLS CPI-U (Dec-to-Dec)</span>
       <p>
         <b>Total return</b> = dividends reinvested each year (the return an investor actually earned).
-        Each "history" invests your plan at the start of a year and holds for the chosen number of years, using that era's real annual returns. Monthly contributions are added at the start of each month; because the source data is annual, each year's return &amp; inflation are split geometrically across its 12 months. With <b>“grows with inflation”</b> selected, each deposit is the entered amount in start-year purchasing power — the nominal deposit rises along that history's own CPI path (like savings tracking a salary); with “Fixed $”, the nominal deposit stays the same forever.</p>
+        Each "history" invests your plan at the start of a year and holds for the chosen number of years, using that era's real annual returns. Monthly contributions are added at the start of each month; because the source data is annual, each year's return &amp; inflation are split geometrically across its 12 months. With <b>“grows with inflation”</b> selected, each deposit is the entered amount in start-year purchasing power, so the nominal deposit rises along that history's own CPI path (like savings tracking a salary). With “Fixed $”, the nominal deposit stays the same forever.</p>
       <p>
-        <b>Real</b> strips out inflation and holds your starting stake at constant purchasing power, so every result is in <em>today's dollars</em> — what the money could actually buy now. Because the starting amount is the same for every history, the real results are <b>directly comparable across start years</b> (raw nominal dollars are not — each is inflated by a different amount over a different era). <b>Nominal</b> is the literal future statement number, before adjusting for inflation. <b>Return/yr</b> is the money-weighted return (IRR) — the single annual rate that grows every dollar, from the day it went in, into the final balance; with a pure lump sum it equals plain CAGR <code>(end/start)^(1/years)−1</code>. <b>Growth ×</b> = ending value ÷ money put in — in Real mode both sides are inflation-adjusted (each contribution valued at the purchasing power it had when contributed), so it reads as a true purchasing-power multiple; "lost purchasing power" and red bars use the same inflation-adjusted baseline.</p>
-      <p>One statistical caveat: neighboring histories overlap (the 1950 and 1951 windows share 39 of 40 years), so the histories are not independent samples — counts like "3 of 61" describe how often something happened across start years, not 61 separate experiments.</p>
-      <p>Returns cross-verified against the independent Damodaran (NYU Stern) S&amp;P 500 series (mean difference 0.38pp across 98 years). Inflation for 1926–1928 (&minus;1.1%, &minus;2.3%, &minus;1.2%) and 2025 (+2.7%) from BLS.</p>
-      <p><em>Not investment advice. Past performance does not predict future results — showing the full range is the whole point.</em>
+        <b>Real</b> strips out inflation and holds your starting stake at constant purchasing power, so every result is in <em>today's dollars</em>, meaning what the money could actually buy now. Because the starting amount is the same for every history, the real results are <b>directly comparable across start years</b> (raw nominal dollars are not, since each is inflated by a different amount over a different era). <b>Nominal</b> is the literal future statement number, before adjusting for inflation. <b>Return/yr</b> is the money-weighted return, known as IRR: the single annual rate that grows every dollar, from the day it went in, into the final balance. With a pure lump sum it equals plain compound annual growth, <code>(end/start)^(1/years)−1</code>. <b>Growth ×</b> is ending value divided by money put in. In Real mode both sides are inflation-adjusted (each contribution valued at the purchasing power it had when contributed), so it reads as a true purchasing-power multiple, and "lost purchasing power" and red bars use the same inflation-adjusted baseline.</p>
+      <p>One statistical caveat: neighboring histories overlap (the 1950 and 1951 windows share 39 of 40 years), so the histories are not independent samples. Counts like "3 of 61" describe how often something happened across start years, not 61 separate experiments.</p>
+      <p>Returns cross-verified against the independent Damodaran (NYU Stern) S&amp;P 500 series (mean difference 0.38pp across 98 years). Inflation for 1926 to 1928 (&minus;1.1%, &minus;2.3%, &minus;1.2%) and 2025 (+2.7%) from BLS.</p>
+      <p><em>Not investment advice. Past performance does not predict future results, and showing the full range is the whole point.</em>
       </p>
     </div>
   </div>
@@ -303,12 +374,15 @@ let mode='nominal', indexed=false, sortKey='label', sortDir=1;
 const $=s=>document.querySelector(s);
 // Per-theme chart palette (both validated for CVD safety & contrast on their surface).
 const CHART={
-  light:{red:'#b0392e',blue:'#2b5fad',green:'#1e8a54',amber:'#a06e08',gray:'#6e6a60',
-         grid:'#eae6da',count:'#57534a',faintB:'rgba(43,95,173,0.16)',faintG:'rgba(30,138,84,0.16)'},
+  light:{red:'#b0392e',blue:'#2b5fad',green:'#1c804e',amber:'#956607',gray:'#6e6a60',
+         grid:'#eae6da',count:'#57534a',faintB:'rgba(43,95,173,0.16)',faintG:'rgba(28,128,78,0.16)'},
   dark:{red:'#d96a5b',blue:'#5f8ad4',green:'#3fa871',amber:'#b58429',gray:'#a29b8a',
         grid:'#2e2a23',count:'#c9c3b2',faintB:'rgba(95,138,212,0.22)',faintG:'rgba(63,168,113,0.22)'}
 };
-let theme; try{theme=localStorage.getItem('rrsim-theme')||'dark';}catch(e){theme='dark';}
+// Section 8.C: default to the system preference; a stored choice overrides it.
+const sysDark=window.matchMedia('(prefers-color-scheme: dark)');
+let stored=null; try{stored=localStorage.getItem('rrsim-theme');}catch(e){}
+let theme=stored||(sysDark.matches?'dark':'light');
 const CH=()=>CHART[theme];   // palette accessor (named CH: 'C' is shadowed by the contribution param in draw fns)
 const fmt$=v=>'$'+Math.round(v).toLocaleString('en-US');
 const fmtPct=v=>(v*100).toFixed(2)+'%';
@@ -331,7 +405,7 @@ function inputs(){
   return {P,C,N,idx:indexed};
 }
 // For every starting year: monthly-simulate, tracking nominal & real paths, endings, IRRs.
-// idx=true: contributions are inflation-indexed — $C of start-year purchasing power each month,
+// idx=true: contributions are inflation-indexed: $C of start-year purchasing power each month,
 // so the nominal deposit is C*PI(t), following that window's own historical CPI path.
 function computeWindows(P,C,N,idx){
   const rows=[], has=P+C>0;
@@ -347,10 +421,10 @@ function computeWindows(P,C,N,idx){
     }
     const endNom=bal, endReal=bal/PI;
     fN.push({t:N,cf:endNom}); fR.push({t:N,cf:endReal});
-    // investedReal: each contribution valued at its start-year purchasing power when it went in —
+    // investedReal: each contribution valued at its start-year purchasing power when it went in,
     // the honest baseline for "did purchasing power grow". invNom: actual nominal dollars deposited
     // (per-window when indexed, since each history has its own inflation path).
-    rows.push({start:s,end:s+N,label:s+'–'+(s+N),endNom,endReal,invested:invNom,investedReal:invReal,
+    rows.push({start:s,end:s+N,label:s+'-'+(s+N),endNom,endReal,invested:invNom,investedReal:invReal,
       cagrNom:has?irr(fN):0, cagrReal:has?irr(fR):0, pathNom, pathReal,
       mult:invNom>0?endNom/invNom:0, multReal:invReal>0?endReal/invReal:0, infl:PI-1});
   }
@@ -364,7 +438,7 @@ function stat(rows,key){
 const eKey=()=>mode==='nominal'?'endNom':'endReal';
 const cKey=()=>mode==='nominal'?'cagrNom':'cagrReal';
 const pKey=()=>mode==='nominal'?'pathNom':'pathReal';
-// Arithmetic mean of ANNUAL returns (current mode) — the "X% a year" figure people quote.
+// Arithmetic mean of ANNUAL returns (current mode): the "X% a year" figure people quote.
 function arithMeanRate(){
   let s=0,n=0;
   for(let y=FIRST;y<=LAST;y++){
@@ -392,7 +466,7 @@ function render(){
   const {P,C,N,idx}=inputs();
   ROWS=computeWindows(P,C,N,idx);
   const invested=P+C*N*12;
-  $('#summary').textContent=ROWS.length+' histories · '+N+'-yr hold · '+FIRST+'–'+LAST+(C>0?' · '+fmt$(invested)+(idx?" in (today's $)":' total in'):'');
+  $('#summary').textContent=ROWS.length+' histories · '+N+'-yr hold · '+FIRST+'-'+LAST+(C>0?' · '+fmt$(invested)+(idx?" in (today's $)":' total in'):'');
   $('#tblCount').textContent='('+ROWS.length+' starting years)';
   $('#legMode').textContent=mode==='nominal'?'Nominal':'Real';
   $('#histDot').style.background=mode==='nominal'?'var(--accent)':'var(--accent2)';
@@ -418,8 +492,8 @@ function render(){
 function renderTrap(P,C,N){
   const eK=eKey(), R=assumedRate();
   $('#trapMode').innerHTML = mode==='nominal'
-    ? 'Comparing in <b style="color:var(--accent)">Nominal</b> dollars — raw future $, inflation included (set by the “Dollars shown” toggle at the top).'
-    : 'Comparing in <b style="color:var(--accent2)">Real</b> dollars — today’s buying power (set by the “Dollars shown” toggle at the top).';
+    ? 'Comparing in <b style="color:var(--accent)">Nominal</b> dollars: raw future $, inflation included (set by the “Dollars shown” toggle at the top).'
+    : 'Comparing in <b style="color:var(--accent2)">Real</b> dollars: today’s buying power (set by the “Dollars shown” toggle at the top).';
   $('#refArith').textContent=(arithMeanRate()*100).toFixed(1)+'%';
   $('#refGeo').textContent=(geoMeanRate()*100).toFixed(1)+'%';
   const naive=fvAt(P,C,R,N);
@@ -434,9 +508,9 @@ function renderTrap(P,C,N){
   const idx=indexed;
   let note='';
   if(C>0 && mode==='real' && !idx)
-    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> in Real mode, much of this gap is <em>not</em> the flat-rate trap. A flat real rate quietly assumes every ${fmt$(C)} contribution keeps full purchasing power, while the replays contribute a fixed ${fmt$(C)} that inflation erodes over the years — so the two model different plans. Tick “grows with inflation” up top to make this comparison apples-to-apples, and judge by the replays and the cards.</div>`;
+    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> in Real mode, much of this gap is <em>not</em> the flat-rate trap. A flat real rate quietly assumes every ${fmt$(C)} contribution keeps full purchasing power, while the replays contribute a fixed ${fmt$(C)} that inflation erodes over the years, so the two model different plans. Tick “grows with inflation” up top to make this comparison apples-to-apples, and judge by the replays and the cards.</div>`;
   else if(C>0 && mode==='nominal' && idx)
-    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> with “grows with inflation” checked, the replays deposit rising nominal amounts (following each era’s actual CPI), while a flat nominal rate assumes a fixed ${fmt$(C)} every month — so the flat line understates the money going in. Judge by the replays and the cards, or flip to Real where this comparison is apples-to-apples.</div>`;
+    note=`<div class="hint" style="margin-top:10px">⚠ <b>Contribution caveat:</b> with “grows with inflation” checked, the replays deposit rising nominal amounts (following each era’s actual CPI), while a flat nominal rate assumes a fixed ${fmt$(C)} every month, so the flat line understates the money going in. Judge by the replays and the cards, or flip to Real where this comparison is apples-to-apples.</div>`;
   // one promise vs the four benchmark outcomes; delta = how each reality compares to the promise
   const bench=[
     {label:'Worst history ('+st.worst.start+')',  v:worst,       color:CH().red},
@@ -448,7 +522,7 @@ function renderTrap(P,C,N){
       <div class="trapline"><span class="tl">${label}</span>
         <div class="tbar"><div class="tfill" style="width:${w(v)}%;background:${color}"></div></div>
         <span class="tv">${fmt$(v)}</span>
-        <span style="width:120px;flex:none;font-size:12.5px">${deltaHtml}</span></div>`;
+        <span class="td">${deltaHtml}</span></div>`;
   const delta=v=>{
     const d=v/naive-1;
     if(Math.abs(d)<0.02) return `<span class="muted">≈ the promise</span>`;
@@ -460,7 +534,7 @@ function renderTrap(P,C,N){
       ${row('Your flat '+(R*100).toFixed(1)+'%/yr promises',naive,CH().amber,'<span class="muted">the promise</span>')}
       ${bench.map(b=>row(b.label,b.v,b.color,delta(b.v))).join('')}
     </div>
-    <div class="traperr">A flat <b>${(R*100).toFixed(1)}%/yr</b> makes one promise — <b>${fmt$(naive)}</b> for every starting year. In reality <b>${beat} of ${ROWS.length}</b> histories ended at or above it and <b>${ROWS.length-beat}</b> below; the actual range was ${fmt$(worst)}–${fmt$(best)}. No single flat rate can stand in for that spread.</div>${note}`;
+    <div class="traperr">A flat <b>${(R*100).toFixed(1)}%/yr</b> makes one promise: <b>${fmt$(naive)}</b> for every starting year. In reality <b>${beat} of ${ROWS.length}</b> histories ended at or above it and <b>${ROWS.length-beat}</b> below; the actual range was ${fmt$(worst)} to ${fmt$(best)}. No single flat rate can stand in for that spread.</div>${note}`;
 }
 function card(cls,title,r,eK,cK){
   const mult=mode==='nominal'?r.mult:r.multReal;
@@ -481,20 +555,31 @@ function avgCard(avgEnd,avgCagr,nLoss,total){
 }
 
 // ---- TABLE ----------------------------------------------------------------
+// Column headers are the single source of truth for both the desktop <th>
+// sort handlers and the small-viewport .sortbar select.
+const COLS=[...document.querySelectorAll('#tbl th')].map(th=>({k:th.dataset.k,label:th.textContent.trim()}));
 function renderTable(){
   const sorted=[...ROWS].sort((a,b)=>{
     let av=a[sortKey],bv=b[sortKey]; if(sortKey==='label'){av=a.start;bv=b.start;}
     return (av<bv?-1:av>bv?1:0)*sortDir;
   });
+  const L=i=>COLS[i].label;
   $('#tbl tbody').innerHTML=sorted.map(r=>`<tr>
-    <td>${r.start}</td>
-    <td>${fmt$(r.endNom)}</td>
-    <td class="${r.cagrNom>=0?'pos':'neg'}">${fmtPct(r.cagrNom)}</td>
-    <td>${fmt$(r.endReal)}</td>
-    <td class="${r.cagrReal>=0?'pos':'neg'}">${fmtPct(r.cagrReal)}</td>
-    <td>${fmtMult(r.mult)}</td>
-    <td>${(r.infl*100).toFixed(0)}%</td>
+    <td data-label="${L(0)}">${r.start}</td>
+    <td data-label="${L(1)}">${fmt$(r.endNom)}</td>
+    <td data-label="${L(2)}" class="${r.cagrNom>=0?'pos':'neg'}">${fmtPct(r.cagrNom)}</td>
+    <td data-label="${L(3)}">${fmt$(r.endReal)}</td>
+    <td data-label="${L(4)}" class="${r.cagrReal>=0?'pos':'neg'}">${fmtPct(r.cagrReal)}</td>
+    <td data-label="${L(5)}">${fmtMult(r.mult)}</td>
+    <td data-label="${L(6)}">${(r.infl*100).toFixed(0)}%</td>
   </tr>`).join('');
+  syncSortBar();
+}
+function syncSortBar(){
+  const sel=$('#mobileSort'); if(!sel) return;
+  if(!sel.options.length) sel.innerHTML=COLS.map(c=>`<option value="${c.k}">${c.label}</option>`).join('');
+  sel.value=sortKey;
+  $('#mobileSortDir').textContent=sortDir===1?'Ascending':'Descending';
 }
 
 // ---- GROWTH CHART ---------------------------------------------------------
@@ -634,7 +719,7 @@ function drawHist(medianCagr){
   hctx.fillStyle='#8f8b80';hctx.textAlign='center';hctx.textBaseline='top';
   const xstep=Math.ceil(nb/9);
   for(let i=0;i<=nb;i++){if(i%xstep===0||i===nb)hctx.fillText((lo+i*bw).toFixed(bw<1?1:0)+'%',padL+i*cw,padT+plotH+8);}
-  hctx.fillText('annualized return, '+(mode==='nominal'?'nominal':'real')+' — %/yr',padL+plotW/2,padT+plotH+24);
+  hctx.fillText('annualized return, '+(mode==='nominal'?'nominal':'real')+', %/yr',padL+plotW/2,padT+plotH+24);
 }
 function hRound(x,y,w,h,r){if(h<0){y+=h;h=-h;}if(h<r)r=h;
   hctx.beginPath();hctx.moveTo(x+r,y);hctx.arcTo(x+w,y,x+w,y+h,r);hctx.arcTo(x+w,y+h,x,y+h,r);
@@ -646,7 +731,7 @@ hcv.addEventListener('mousemove',e=>{
   if(i<0||i>=g.nb||mx<g.padL||!histBins[i]||histBins[i].c===0){htip.style.opacity=0;return;}
   const b=histBins[i], st=b.starts.slice().sort((a,c)=>a-c);
   const list=st.length>6?st.slice(0,6).join(', ')+' +'+(st.length-6)+' more':st.join(', ');
-  htip.innerHTML=`<b>${b.from.toFixed(g.bw<1?1:0)}% – ${b.to.toFixed(g.bw<1?1:0)}%/yr</b><br>`+
+  htip.innerHTML=`<b>${b.from.toFixed(g.bw<1?1:0)}% to ${b.to.toFixed(g.bw<1?1:0)}%/yr</b><br>`+
     `${b.c} histor${b.c>1?'ies':'y'} (${(100*b.c/ROWS.length).toFixed(0)}%)<br>`+
     `<span style="color:${CH().gray}">start years: ${list}</span>`;
   htip.style.opacity=1;
@@ -657,7 +742,7 @@ hcv.addEventListener('mouseleave',()=>htip.style.opacity=0);
 
 // ---- EVENTS ---------------------------------------------------------------
 // Debounce while typing: with monthly contributions the full recompute (IRR over ~500
-// cash flows x 61 windows) costs ~160ms — per keystroke that stutters, so wait for a pause.
+// cash flows x 61 windows) costs ~160ms; per keystroke that stutters, so wait for a pause.
 let renderTimer=null;
 const renderSoon=()=>{ clearTimeout(renderTimer); renderTimer=setTimeout(render,120); };
 ['amount','monthly','years','trapRateInput'].forEach(id=>$('#'+id).addEventListener('input',renderSoon));
@@ -671,7 +756,7 @@ document.querySelectorAll('#idxToggle button').forEach(b=>{
 // hard-clamp the years field: cap immediately while typing, snap into [5,100] on blur
 $('#years').addEventListener('input',()=>{ if(+$('#years').value>100){$('#years').value=100;renderSoon();} });
 $('#years').addEventListener('change',()=>{ let v=Math.round(+$('#years').value||40); v=Math.max(5,Math.min(100,v)); $('#years').value=v; render(); });
-// no negatives (and no exponent notation) in any numeric input — block the keys and sanitize pastes
+// no negatives (and no exponent notation) in any numeric input: block the keys and sanitize pastes
 ['amount','monthly','years','trapRateInput'].forEach(id=>{
   const el=$('#'+id);
   el.addEventListener('keydown',e=>{ if(['-','e','E','+'].includes(e.key)) e.preventDefault(); });
@@ -695,13 +780,25 @@ document.querySelectorAll('#tbl th').forEach(th=>{
     renderTable();
   });
 });
+$('#mobileSort').addEventListener('change',e=>{
+  sortKey=e.target.value; sortDir=sortKey==='label'?1:-1; renderTable();
+});
+$('#mobileSortDir').addEventListener('click',()=>{ sortDir*=-1; renderTable(); });
 function applyTheme(){
-  document.body.classList.toggle('dark',theme==='dark');
+  document.documentElement.setAttribute('data-theme',theme);
   $('#themeBtn').textContent=theme==='dark'?'Light mode':'Dark mode';
+  $('#themeBtn').setAttribute('aria-label','Switch to '+(theme==='dark'?'light':'dark')+' mode');
 }
 $('#themeBtn').addEventListener('click',()=>{
   theme=theme==='dark'?'light':'dark';
+  stored=theme;
   try{localStorage.setItem('rrsim-theme',theme);}catch(e){}
+  applyTheme(); render();
+});
+// follow the OS if the visitor has never made an explicit choice here
+sysDark.addEventListener('change',e=>{
+  if(stored) return;
+  theme=e.matches?'dark':'light';
   applyTheme(); render();
 });
 window.addEventListener('resize',render);
