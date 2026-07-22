@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S&P 500 Rolling-Window Return Simulator</title>
-<meta name="description" content="A compound interest calculator that uses real history: see how a lump sum or monthly plan would have fared starting in every year since 1926, using actual S&P 500 total returns, nominal and inflation-adjusted.">
+<title>S&amp;P 500 Rolling-Window Return Simulator</title>
+<meta name="description" content="A compound interest calculator that uses real history: see how a lump sum or monthly plan would have fared starting in every year since 1926, using actual S&amp;P 500 total returns, nominal and inflation-adjusted.">
 <script>
 // Set the theme before first paint so a dark-mode visitor never sees a light flash.
 // Mirrors the logic in the main script; localStorage wins over the OS preference.
@@ -13,130 +13,180 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet">
 <style>
-  /* ---- TOKENS -------------------------------------------------------------
-     Light is the base set; dark is applied by [data-theme="dark"] on <html>,
-     which is set either from prefers-color-scheme or from the manual toggle.
-     Every surface/foreground pair below is verified >= WCAG AA 4.5:1 for text
-     at the sizes it is actually used at, in BOTH themes.
-     Radius rule (documented, applied everywhere): controls 2px, surfaces 3px,
-     pills 999px. No other radii.
-     ------------------------------------------------------------------------ */
+  /* ==========================================================================
+     EDITORIAL BROADSHEET - financial-publication language.
+     Newsreader for display and figures, IBM Plex Sans for body and interface.
+     Stories separated by rules; charts sit in ruled frames the way a newspaper
+     boxes an exhibit. Warm newsprint stock, ink black, one deep-blue accent,
+     red/green reserved for loss and gain.
+     Dials: DESIGN_VARIANCE 5 / MOTION_INTENSITY 4 / VISUAL_DENSITY 7.
+     Every colour pair verified >= WCAG AA 4.5:1 in BOTH themes.
+     Radius rule: square throughout, except the one pill control.
+     ========================================================================== */
   :root{
-    --paper:#f7f5ef; --plate:#fffefb; --ink:#1c1a15; --muted:#6e6a60;
-    --hair:#e2ddcf; --hair2:#edeadf; --track:#f0ede2;
-    --field:#ffffff; --wash:#faf3e2; --shadow:0 6px 20px rgba(28,26,21,.10);
-    --red:#b0392e; --blue:#2b5fad; --green:#1c804e; --amber:#956607;
-    --accent:#2b5fad; --accent2:#1c804e; --bad:#b0392e; --good:#1c804e;
+    --paper:#f6f3ec; --plate:#fdfbf6; --band:#ece7db; --field:#fffdf8; --wash:#ece7db;
+    --ink:#1a1814; --muted:#6b6459; --hair:#ddd6c6; --hair2:#e8e2d4; --track:#e4ddcd;
+    --shadow:0 8px 28px rgba(26,24,20,.10);
+    --red:#b0392e; --blue:#2b5fad; --green:#1a7748; --amber:#8b5f07;
+    --accent:#2b5fad; --accent2:#1a7748; --bad:#b0392e; --good:#1a7748;
 
-    /* spacing scale: the only vertical/horizontal steps used on this page */
-    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s8:72px;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px;
 
-    /* type scale: 9 steps, down from 13 ad-hoc sizes */
     --t-label:10.5px; --t-micro:11.5px; --t-xs:12.5px; --t-sm:13.5px;
-    --t-body:15px; --t-lead:17.5px; --t-h2:21px; --t-stat:27px; --t-h1:38px;
+    --t-body:15px; --t-lead:clamp(17px,1.6vw,20px);
+    --t-h2:clamp(22px,2.1vw,27px); --t-stat:clamp(26px,2.7vw,34px);
+    --t-h1:clamp(32px,4.4vw,56px);
 
-    --r-ctl:2px; --r-surface:3px; --r-pill:999px;
+    --r-pill:999px;
     --serif:"Newsreader",Georgia,"Times New Roman",serif;
+    --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --rule:2px solid var(--ink);
   }
   :root[data-theme="dark"]{
-    --paper:#14120e; --plate:#1c1a15; --ink:#eae5d8; --muted:#a29b8a;
-    --hair:#343027; --hair2:#2a2620; --track:#2a2620;
-    --field:#1c1a15; --wash:#251e0e; --shadow:0 6px 20px rgba(0,0,0,.55);
-    --red:#d96a5b; --blue:#5f8ad4; --green:#3fa871; --amber:#b58429;
-    --accent:#5f8ad4; --accent2:#3fa871; --bad:#d96a5b; --good:#3fa871;
+    --paper:#16140f; --plate:#1e1b16; --band:#241f18; --field:#1e1b16; --wash:#241f18;
+    --ink:#ece5d6; --muted:#a49b88; --hair:#363126; --hair2:#2a251d; --track:#2f2a21;
+    --shadow:0 8px 28px rgba(0,0,0,.6);
+    --red:#d96a5b; --blue:#6f9ad6; --green:#3fa871; --amber:#b58429;
+    --accent:#6f9ad6; --accent2:#3fa871; --bad:#d96a5b; --good:#3fa871;
   }
   *{box-sizing:border-box}
   body{
     margin:0; background:var(--paper); color:var(--ink);
-    font:var(--t-body)/1.65 "IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
-    padding:var(--s6) var(--s5) var(--s8);
+    font:var(--t-body)/1.6 var(--sans);
+    padding:0 var(--s5) var(--s8);
+    -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1060px;margin:0 auto}
-  .mast{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);flex-wrap:wrap;
-    border-bottom:2px solid var(--ink);padding-bottom:var(--s3);margin-bottom:var(--s5);
+  .wrap{max-width:1180px;margin:0 auto}
+
+  /* ---- masthead: hairline above, heavy rule below, as a paper does --------- */
+  .mast{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);
+    flex-wrap:wrap;border-top:1px solid var(--hair);border-bottom:var(--rule);
+    padding:var(--s3) 0;margin-bottom:var(--s7);
     font-size:var(--t-micro);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .mast b{color:var(--ink);font-weight:600}
-  h1{font-family:var(--serif);font-weight:600;
-     font-size:var(--t-h1);line-height:1.15;letter-spacing:-.01em;margin:var(--s4) 0 var(--s3)}
+  .mast b{font-family:var(--serif);font-weight:600;color:var(--ink);
+    font-size:var(--t-sm);letter-spacing:.06em}
+
+  /* ---- hero: headline, hairline, standfirst ------------------------------- */
+  .hero{padding-bottom:var(--s7)}
+  h1{font-family:var(--serif);font-weight:600;font-size:var(--t-h1);
+     line-height:1.06;letter-spacing:-.015em;margin:0}
+  h1::after{content:"";display:block;width:96px;border-top:var(--rule);
+    margin:var(--s4) 0 var(--s4)}
   .sub{font-family:var(--serif);font-style:italic;font-size:var(--t-lead);
-       line-height:1.55;color:var(--muted);margin:0 0 var(--s6)}
-  .sub b{color:var(--ink);font-weight:600;font-style:normal}
-  .controls{
-    display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-end;
-    background:var(--plate);border:1px solid var(--hair);border-radius:var(--r-surface);
-    padding:var(--s4) var(--s5);margin-bottom:var(--s5);
-  }
-  .ctlnote{width:100%;font-size:var(--t-sm);color:var(--muted);border-top:1px solid var(--hair2);padding-top:var(--s3);margin-top:0}
+    line-height:1.5;color:var(--muted);margin:0}
+  .sub b{color:var(--ink);font-weight:500;font-style:normal}
+
+  /* ---- control band ------------------------------------------------------- */
+  .controls{display:flex;flex-wrap:wrap;gap:var(--s5) var(--s6);align-items:flex-end;
+    background:var(--band);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);
+    padding:var(--s5);margin:0 0 var(--s7)}
+  .ctlnote{width:100%;display:flex;flex-wrap:wrap;gap:var(--s2) var(--s5);
+    font-size:var(--t-xs);color:var(--muted);letter-spacing:.02em;
+    border-top:1px solid var(--hair);padding-top:var(--s3);margin-top:var(--s1)}
   .ctl{display:flex;flex-direction:column;gap:var(--s2)}
+  /* the band's children have intrinsic widths, so let them grow or the row
+     strands space at its right edge. Scoped: the trap row has only two items. */
+  .controls .ctl{flex:1 1 auto}
+  .controls input[type=number]{width:100%}
+  .controls .toggle{width:100%}
+  .controls .toggle button{flex:1;white-space:nowrap}
   .ctl label{font-size:var(--t-label);color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
   input[type=number]{
-    background:var(--field);border:1px solid var(--hair);color:var(--ink);border-radius:var(--r-ctl);
-    height:40px;padding:0 var(--s3);font-size:var(--t-body);outline:none;width:170px;font-family:inherit;
-    font-variant-numeric:tabular-nums;
+    background:var(--field);border:1px solid var(--hair);border-radius:0;color:var(--ink);
+    height:44px;padding:0 var(--s3);font-size:var(--t-body);outline:none;width:170px;
+    font-family:var(--sans);font-variant-numeric:tabular-nums;
+    transition:border-color .2s cubic-bezier(.16,1,.3,1);
   }
   input[type=number]:focus{border-color:var(--ink)}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .amt-wrap{position:relative}
-  .amt-wrap span{position:absolute;left:var(--s3);top:9px;color:var(--muted)}
+  .amt-wrap span{position:absolute;left:var(--s3);top:11px;color:var(--muted)}
   .amt-wrap input{padding-left:26px}
-  .toggle{display:flex;border:1px solid var(--hair);border-radius:var(--r-ctl);overflow:hidden;background:var(--field);height:40px}
-  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 var(--s3);cursor:pointer;font-size:var(--t-sm);font-weight:500;font-family:inherit}
+  .toggle{display:flex;border:1px solid var(--hair);background:var(--field);height:44px}
+  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 var(--s4);cursor:pointer;
+    font-size:var(--t-sm);font-weight:500;font-family:var(--sans);
+    transition:background .2s cubic-bezier(.16,1,.3,1),color .2s}
   .toggle button:hover{color:var(--ink)}
   .toggle button.on{background:var(--ink);color:var(--paper)}
-  .toggle.real button.on{background:var(--ink)}
 
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--hair);border-radius:var(--r-surface);background:var(--plate);margin-bottom:var(--s5);overflow:hidden}
-  .card{padding:var(--s4) var(--s5);border-left:1px solid var(--hair)}
-  .card:first-child{border-left:0}
-  .card .k{font-size:var(--t-label);color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:var(--s2)}
-  .card .v{font-family:var(--serif);font-weight:600;font-size:var(--t-stat);letter-spacing:-.01em;font-variant-numeric:lining-nums tabular-nums}
-  .card .cagr{font-size:var(--t-xs);color:var(--muted);margin-top:var(--s1)}
+  /* ---- the figures: label, number, rule beneath, detail below ------------- */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s5);margin-bottom:var(--s7)}
+  .card{padding:0}
+  .card .k{font-size:var(--t-label);color:var(--muted);text-transform:uppercase;
+    letter-spacing:.12em;margin-bottom:var(--s3)}
+  .card .v{font-family:var(--serif);font-weight:600;font-size:var(--t-stat);letter-spacing:-.015em;
+    font-variant-numeric:lining-nums tabular-nums;line-height:1;
+    border-bottom:1px solid var(--ink);padding-bottom:var(--s3)}
+  .card .cagr{font-size:var(--t-xs);color:var(--muted);margin-top:var(--s3)}
   .card .win{font-size:var(--t-micro);color:var(--muted);margin-top:var(--s2)}
-  .card.worst .v{color:var(--red)}
-  .card.best .v{color:var(--green)}
+  .card.worst .v{color:var(--red);border-bottom-color:var(--red)}
+  .card.best .v{color:var(--green);border-bottom-color:var(--green)}
 
-  .panel{background:var(--plate);border:1px solid var(--hair);border-radius:var(--r-surface);padding:var(--s5);margin-bottom:var(--s5)}
-  .fig{display:block;font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:var(--s1)}
-  .panel h2{font-family:var(--serif);font-size:var(--t-h2);font-weight:600;margin:0 0 var(--s2);line-height:1.25}
-  .panel .hint{color:var(--muted);font-size:var(--t-sm);line-height:1.6;margin:0 0 var(--s4)}
+  /* ---- stories, separated by rules ---------------------------------------- */
+  .panel{border-top:1px solid var(--hair);padding:var(--s6) 0 var(--s8)}
+  .cards + .panel{border-top:var(--rule)}
+  .panel.argument{border-top:var(--rule)}
+  .panel.argument h2{font-size:var(--t-stat)}
+  .panel:last-child{border-bottom:1px solid var(--hair)}
+  .fig{display:block;font-size:var(--t-label);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:var(--s2)}
+  .panel h2{font-family:var(--serif);font-size:var(--t-h2);font-weight:600;letter-spacing:-.01em;
+    margin:0 0 var(--s3);line-height:1.2}
+  .panel .hint{color:var(--muted);font-size:var(--t-sm);line-height:1.65;margin:0 0 var(--s5)}
+
+  /* charts are exhibits: a newspaper boxes them */
   canvas{width:100%;max-width:100%;display:block}
-  .chartwrap{position:relative}
+  .chartwrap{position:relative;border:1px solid var(--hair);background:var(--plate);
+    padding:var(--s4)}
   .tip{
-    position:absolute;pointer-events:none;background:var(--field);border:1px solid var(--hair);
-    border-radius:var(--r-surface);padding:var(--s2) var(--s3);font-size:var(--t-xs);color:var(--ink);
-    opacity:0;transition:opacity .08s;white-space:nowrap;z-index:5;
+    position:absolute;pointer-events:none;background:var(--field);border:1px solid var(--ink);
+    padding:var(--s2) var(--s3);font-size:var(--t-xs);color:var(--ink);
+    opacity:0;transition:opacity .1s;white-space:nowrap;z-index:5;
     box-shadow:var(--shadow);font-variant-numeric:tabular-nums;
   }
-  .legend{display:flex;gap:var(--s4);margin-top:var(--s3);font-size:var(--t-xs);color:var(--muted);flex-wrap:wrap}
-  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:var(--r-ctl);margin-right:var(--s2);vertical-align:-1px}
+  .legend{display:flex;gap:var(--s5);margin-top:var(--s3);
+    font-size:var(--t-xs);color:var(--muted);flex-wrap:wrap}
+  .legend .dot{display:inline-block;width:9px;height:9px;margin-right:var(--s2);vertical-align:0}
 
+  /* ---- tabular matter ----------------------------------------------------- */
   table{width:100%;border-collapse:collapse;font-size:var(--t-sm);font-variant-numeric:tabular-nums}
   th,td{padding:var(--s2) var(--s3);text-align:right;border-bottom:1px solid var(--hair2)}
-  th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted);font-weight:600;font-size:var(--t-label);text-transform:uppercase;letter-spacing:.1em;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--plate);border-bottom:2px solid var(--ink)}
+  th:first-child,td:first-child{text-align:left;padding-left:0}
+  th:last-child,td:last-child{padding-right:0}
+  th{color:var(--muted);font-weight:600;font-size:var(--t-label);text-transform:uppercase;
+    letter-spacing:.1em;cursor:pointer;user-select:none;position:sticky;top:0;
+    background:var(--paper);border-bottom:var(--rule);transition:color .15s}
   th:hover{color:var(--ink)}
-  tbody tr:hover{background:var(--paper)}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:var(--band)}
   td.pos{color:var(--good)}td.neg{color:var(--bad)}
-  .tablewrap{max-height:460px;overflow:auto}
-  .sortbar{display:none;gap:var(--s2);align-items:flex-end;margin-bottom:var(--s4);flex-wrap:wrap}
-  .sortbar select{background:var(--field);border:1px solid var(--hair);color:var(--ink);border-radius:var(--r-ctl);
-    height:40px;padding:0 var(--s2);font-family:inherit;font-size:var(--t-sm)}
-  .sortbar button{background:var(--field);border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-ctl);
-    height:40px;padding:0 var(--s3);font-family:inherit;font-size:var(--t-sm);cursor:pointer}
+  .tablewrap{max-height:520px;overflow:auto}
+  .sortbar{display:none;gap:var(--s3);align-items:flex-end;margin-bottom:var(--s4);flex-wrap:wrap}
+  .sortbar select,.sortbar button{background:var(--field);border:1px solid var(--hair);color:var(--ink);
+    height:44px;padding:0 var(--s3);font-family:var(--sans);font-size:var(--t-sm);border-radius:0}
+  .sortbar button{color:var(--muted);cursor:pointer}
   .sortbar button:hover{color:var(--ink);border-color:var(--ink)}
   .muted{color:var(--muted)}
-  .trapgrid{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s4)}
-  .trapline{display:flex;align-items:center;gap:var(--s3)}
-  .trapline .tl{width:220px;font-size:var(--t-sm);color:var(--muted);flex:none;text-align:right}
-  .tbar{flex:1;background:var(--track);border-radius:var(--r-ctl);height:24px;overflow:hidden}
-  .tfill{height:100%;transition:width .25s}
-  .trapline .tv{width:120px;flex:none;font-weight:600;font-size:var(--t-body);font-variant-numeric:tabular-nums}
-  .trapline .td{width:120px;flex:none;font-size:var(--t-xs)}
-  .traperr{font-size:var(--t-body);line-height:1.65;color:var(--ink);background:var(--wash);border-left:3px solid var(--amber);border-radius:0 var(--r-surface) var(--r-surface) 0;padding:var(--s3) var(--s4)}
+
+  /* ---- the argument ------------------------------------------------------- */
+  .trapgrid{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s5)}
+  .trapline{display:flex;align-items:center;gap:var(--s4)}
+  .trapline .tl{width:230px;font-size:var(--t-sm);color:var(--muted);flex:none;text-align:right}
+  .tbar{flex:1;background:transparent;border-bottom:1px solid var(--hair);height:22px;
+    display:flex;align-items:stretch}
+  .tfill{height:100%;transition:width .45s cubic-bezier(.16,1,.3,1)}
+  .trapline .tv{width:130px;flex:none;font-family:var(--serif);font-weight:600;
+    font-size:var(--t-lead);font-variant-numeric:tabular-nums}
+  .trapline .td{width:130px;flex:none;font-size:var(--t-xs)}
+  .traperr{font-size:var(--t-body);line-height:1.6;color:var(--ink);background:var(--wash);
+    border-left:3px solid var(--amber);padding:var(--s4) var(--s5)}
   .traperr b{color:var(--amber)}
-  .refchip{background:var(--field);border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-pill);height:40px;display:inline-flex;align-items:center;gap:var(--s1);padding:0 var(--s4);font-size:var(--t-xs);cursor:pointer;font-family:inherit}
+  .refchip{background:var(--field);border:1px solid var(--hair);color:var(--muted);
+    border-radius:var(--r-pill);height:44px;display:inline-flex;align-items:center;gap:var(--s1);
+    padding:0 var(--s4);font-family:var(--sans);font-size:var(--t-xs);cursor:pointer;
+    transition:border-color .2s,color .2s,transform .1s}
   .refchip:hover{color:var(--ink);border-color:var(--ink)}
   .refchip:active{transform:translateY(1px)}
   .refchip b{color:var(--blue);font-variant-numeric:tabular-nums}
@@ -144,69 +194,87 @@
   [data-tip]{position:relative}
   [data-tip]::after{
     content:attr(data-tip);position:absolute;left:0;top:calc(100% + var(--s2));z-index:20;
-    background:var(--plate);color:var(--ink);border:1px solid var(--hair);border-radius:var(--r-surface);
-    padding:var(--s3);font-size:var(--t-xs);line-height:1.55;width:300px;max-width:min(300px,72vw);white-space:normal;
+    background:var(--plate);color:var(--ink);border:1px solid var(--ink);
+    padding:var(--s3);font-family:var(--sans);font-size:var(--t-xs);line-height:1.55;
+    width:320px;max-width:min(320px,72vw);white-space:normal;
     box-shadow:var(--shadow);opacity:0;visibility:hidden;pointer-events:none;
-    transition:opacity .12s;text-transform:none;letter-spacing:normal;font-weight:400;text-align:left;
+    transition:opacity .15s;text-transform:none;letter-spacing:normal;font-weight:400;text-align:left;
   }
   [data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;visibility:visible}
   [data-tip].tip-right::after{left:auto;right:0}
-  .modeline{font-size:var(--t-sm);color:var(--muted);margin:0 0 var(--s3)}
-  .foot{color:var(--muted);font-size:var(--t-xs);line-height:1.75;margin-top:var(--s2)}
-  .foot code{background:var(--track);padding:1px var(--s2);border-radius:var(--r-ctl);color:var(--ink)}
-  .foot p{margin:0 0 var(--s3)}
+  .modeline{font-size:var(--t-xs);color:var(--muted);margin:0 0 var(--s4)}
+
+  /* ---- colophon ----------------------------------------------------------- */
+  .foot{color:var(--muted);font-size:var(--t-xs);line-height:1.8;margin-top:0}
+  .foot code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:var(--track);padding:1px var(--s2);color:var(--ink)}
+  .foot p{margin:0 0 var(--s4)}
   .foot p:last-child{margin-bottom:0}
-  .pill{display:inline-block;background:var(--field);border:1px solid var(--hair);border-radius:var(--r-pill);padding:3px var(--s3);font-size:var(--t-micro);color:var(--muted);margin:0 var(--s2) var(--s2) 0}
-  .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:var(--r-pill);padding:var(--s1) var(--s3);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+  .pillrow{margin-bottom:var(--s4)}
+  .pill{display:inline-block;background:transparent;border:1px solid var(--hair);
+    padding:var(--s1) var(--s3);font-size:var(--t-micro);color:var(--muted);
+    margin:0 var(--s2) var(--s2) 0}
+  .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);
+    border-radius:var(--r-pill);padding:var(--s1) var(--s3);font:inherit;
+    letter-spacing:inherit;text-transform:inherit;cursor:pointer;transition:border-color .2s,color .2s}
   .themeBtn:hover{color:var(--ink);border-color:var(--ink)}
   .themeBtn:active{transform:translateY(1px)}
 
+  /* ---- MOTION_INTENSITY 4: entry cascade above the fold only -------------- */
+  @keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .hero{animation:riseIn .55s cubic-bezier(.16,1,.3,1) both}
+  .controls{animation:riseIn .55s cubic-bezier(.16,1,.3,1) .07s both}
+  .cards{animation:riseIn .55s cubic-bezier(.16,1,.3,1) .14s both}
+
+  @media(max-width:1180px){
+    .cards{grid-template-columns:repeat(2,1fr);gap:var(--s5) var(--s6)}
+  }
   @media(max-width:760px){
-    .cards{grid-template-columns:repeat(2,1fr)}
-    .card:nth-child(odd){border-left:0}
-    .card:nth-child(n+3){border-top:1px solid var(--hair)}
-    h1{font-size:var(--t-stat)}
-    body{padding:var(--s5) var(--s4) var(--s6)}
-    .panel,.controls{padding:var(--s4)}
+    body{padding:0 var(--s4) var(--s6)}
+    .controls{padding:var(--s4)}
+    .trapline .tl{width:150px}
+    h1::after{width:72px}
   }
   @media(max-width:640px){
     .trapline{flex-wrap:wrap;gap:var(--s2)}
     .trapline .tl{width:100%;text-align:left;order:1}
-    .tbar{order:3;flex-basis:100%;height:14px}
+    .tbar{order:3;flex-basis:100%;height:12px}
     .trapline .tv{order:2;width:auto;flex:1}
     .trapline .td{order:2;width:auto;text-align:right}
 
-    /* Lever 6: the 7-column history table is unusable below 640px.
-       Each row becomes a labelled block; sorting moves to .sortbar so the
-       feature survives the collapse (the <th> handlers are hidden, not lost). */
+    /* the 7-column table is unusable here: each row becomes a labelled block,
+       and sorting moves to .sortbar so the feature survives the collapse */
     .sortbar{display:flex}
     .tablewrap{max-height:none;overflow:visible}
+    .chartwrap{padding:var(--s3)}
     #tbl thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     #tbl,#tbl tbody,#tbl tr,#tbl td{display:block;width:100%}
-    #tbl tr{border:1px solid var(--hair);border-radius:var(--r-surface);background:var(--plate);
+    #tbl tr{border:1px solid var(--hair);background:var(--plate);
       padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
     #tbl tr:hover{background:var(--plate)}
-    #tbl td{border:0;padding:var(--s1) 0;display:flex;justify-content:space-between;align-items:baseline;gap:var(--s4);text-align:right}
+    #tbl td{border:0;padding:var(--s1) 0;display:flex;justify-content:space-between;
+      align-items:baseline;gap:var(--s4);text-align:right}
     #tbl td::before{content:attr(data-label);color:var(--muted);font-size:var(--t-label);font-weight:600;
-      font-family:"IBM Plex Sans",Helvetica,Arial,sans-serif;
       text-transform:uppercase;letter-spacing:.1em;text-align:left;flex:none}
     #tbl td:first-child{font-family:var(--serif);font-size:var(--t-lead);font-weight:600;
       border-bottom:1px solid var(--hair2);padding-bottom:var(--s2);margin-bottom:var(--s2)}
   }
 
-  /* Section 6.B: MOTION_INTENSITY 3 is hover/active feedback only, but every
-     transition on the page still collapses under reduced-motion. */
   @media(prefers-reduced-motion:reduce){
-    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;
+      animation-iteration-count:1 !important}
     .refchip:active,.themeBtn:active{transform:none}
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="mast"><span><b>Finance Tools</b> · Market History</span><span style="display:flex;gap:var(--s4);align-items:center"><span>1926 to 2025</span><button class="themeBtn" id="themeBtn" type="button">Light mode</button></span></div>
-  <h1>S&P 500 Rolling-Window Return Simulator</h1>
-  <p class="sub">A compound-growth calculator that replays <b>history</b> instead of assuming a flat rate. Pick a plan (a lump sum, monthly contributions, and how many years you'd stay invested) and see how it would have turned out starting in <b>every year since 1926</b>, using actual annual S&P total returns with dividends reinvested.</p>
+<main class="wrap">
+  <div class="mast"><span><b>Finance Tools</b> | Market History</span><span style="display:flex;gap:var(--s4);align-items:center"><span>1926 to 2025</span><button class="themeBtn" id="themeBtn" type="button">Light mode</button></span></div>
+  <div class="hero">
+    <h1>S&amp;P 500 Rolling-Window Return Simulator</h1>
+    <p class="sub">A compound-growth calculator that replays <b>history</b> instead of assuming a flat rate. Pick a plan (a lump sum, monthly contributions, and how many years you'd stay invested) and see how it would have turned out starting in <b>every year since 1926</b>, using actual annual S&amp;P total returns with dividends reinvested.</p>
+  </div>
+
 
   <div class="controls">
     <div class="ctl">
@@ -244,17 +312,17 @@
     <h2>Growth over time, every history replayed</h2>
     <p class="hint">Each faint line is your plan run through one historical starting year, with its <em>actual</em> year-by-year crashes and booms. The bold lines are the <span style="color:var(--red)">worst</span>, <span style="color:var(--blue)">median</span>, and <span style="color:var(--green)">best</span> endings. The dashed <span style="color:var(--amber)">amber</span> line compounds whatever flat rate you set in the trap section below: notice how one straight rate can't hug the real, bumpy paths. The bumps are the point, because that's the ride you'd actually sit through.</p>
     <div class="chartwrap">
-      <canvas id="growth" height="340"></canvas>
+      <canvas id="growth" height="340" role="img" aria-label="Line chart: your plan replayed through every historical starting year, with the worst, median and best runs highlighted. The same data is listed in Table 1 below."></canvas>
       <div class="tip" id="gtip"></div>
     </div>
     <div class="legend" id="growthLegend"></div>
   </div>
 
-  <div class="panel">
+  <div class="panel argument">
     <h2>The “average return” trap, or why any single “X% a year” misleads</h2>
     <p class="hint">Type any flat annual return (that's also the dashed amber line above) and see the single promise it makes, then how the <b>worst, median, best, and average</b> real histories compare to that promise. Averaging bumpy returns into one number can't match reality: a −37% year like 2008 needs a +59% year just to break even. Try the two numbers people actually quote (click a chip):</p>
     <p class="modeline" id="trapMode"></p>
-    <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;gap:var(--s4);align-items:flex-end;flex-wrap:wrap;margin-bottom:var(--s4)">
       <div class="ctl"><label>Assume this % a year</label>
         <input id="trapRateInput" type="number" step="0.1"></div>
       <div class="ctl"><label>Or click a rate computed live from Table 1</label>
@@ -271,7 +339,7 @@
     <h2>Ending value by start year</h2>
     <p class="hint">Each bar is one history's ending value, lined up by the year it started, so you can see which eras were lucky or unlucky as a timeline. <span style="color:var(--red)">Red</span> bars ended below what you put in. The dashed <span style="color:var(--amber)">amber</span> line is the median.</p>
     <div class="chartwrap">
-      <canvas id="bars" height="320"></canvas>
+      <canvas id="bars" height="320" role="img" aria-label="Bar chart: ending value for each starting year, oldest to newest. The same data is listed in Table 1 below."></canvas>
       <div class="tip" id="btip"></div>
     </div>
     <div class="legend">
@@ -285,7 +353,7 @@
     <h2>Range of outcomes</h2>
     <p class="hint">How often each annualized return occurred across all the histories. A tall middle means most starting years clustered near it; a wide spread means timing luck mattered a lot. Amber bar = the median.</p>
     <div class="chartwrap">
-      <canvas id="hist" height="300"></canvas>
+      <canvas id="hist" height="300" role="img" aria-label="Histogram: how often each annualized return occurred across all starting years. The same data is listed in Table 1 below."></canvas>
       <div class="tip" id="htip"></div>
     </div>
     <div class="legend">
@@ -306,7 +374,7 @@
       </div>
       <button id="mobileSortDir" type="button" aria-live="polite">Ascending</button>
     </div>
-    <div class="tablewrap">
+    <div class="tablewrap" tabindex="0" role="region" aria-label="Every history, scrollable table">
       <table id="tbl">
         <thead><tr>
           <th data-k="label">Started</th>
@@ -325,8 +393,10 @@
   <div class="panel">
     <h2>Data &amp; method</h2>
     <div class="foot">
-      <span class="pill">Returns: Ibbotson/Morningstar SBBI U.S. Large-Cap total return</span>
-      <span class="pill">Inflation: BLS CPI-U (Dec-to-Dec)</span>
+      <div class="pillrow">
+        <span class="pill">Returns: Ibbotson/Morningstar SBBI U.S. Large-Cap total return</span>
+        <span class="pill">Inflation: BLS CPI-U (Dec-to-Dec)</span>
+      </div>
       <p>
         <b>Total return</b> = dividends reinvested each year (the return an investor actually earned).
         Each "history" invests your plan at the start of a year and holds for the chosen number of years, using that era's real annual returns. Monthly contributions are added at the start of each month; because the source data is annual, each year's return &amp; inflation are split geometrically across its 12 months. With <b>“grows with inflation”</b> selected, each deposit is the entered amount in start-year purchasing power, so the nominal deposit rises along that history's own CPI path (like savings tracking a salary). With “Fixed $”, the nominal deposit stays the same forever.</p>
@@ -338,7 +408,7 @@
       </p>
     </div>
   </div>
-</div>
+</main>
 
 <script>
 // ---- DATA (embedded, verified) --------------------------------------------
@@ -374,10 +444,10 @@ let mode='nominal', indexed=false, sortKey='label', sortDir=1;
 const $=s=>document.querySelector(s);
 // Per-theme chart palette (both validated for CVD safety & contrast on their surface).
 const CHART={
-  light:{red:'#b0392e',blue:'#2b5fad',green:'#1c804e',amber:'#956607',gray:'#6e6a60',
-         grid:'#eae6da',count:'#57534a',faintB:'rgba(43,95,173,0.16)',faintG:'rgba(28,128,78,0.16)'},
-  dark:{red:'#d96a5b',blue:'#5f8ad4',green:'#3fa871',amber:'#b58429',gray:'#a29b8a',
-        grid:'#2e2a23',count:'#c9c3b2',faintB:'rgba(95,138,212,0.22)',faintG:'rgba(63,168,113,0.22)'}
+  light:{red:'#b0392e',blue:'#2b5fad',green:'#1a7748',amber:'#8b5f07',gray:'#6b6459',
+         grid:'#e6e0d0',count:'#57514a',faintB:'rgba(43,95,173,0.15)',faintG:'rgba(26,119,72,0.15)'},
+  dark:{red:'#d96a5b',blue:'#6f9ad6',green:'#3fa871',amber:'#b58429',gray:'#a49b88',
+        grid:'#302b22',count:'#c6bda9',faintB:'rgba(111,154,214,0.20)',faintG:'rgba(63,168,113,0.20)'}
 };
 // Section 8.C: default to the system preference; a stored choice overrides it.
 const sysDark=window.matchMedia('(prefers-color-scheme: dark)');
@@ -466,7 +536,9 @@ function render(){
   const {P,C,N,idx}=inputs();
   ROWS=computeWindows(P,C,N,idx);
   const invested=P+C*N*12;
-  $('#summary').textContent=ROWS.length+' histories · '+N+'-yr hold · '+FIRST+'-'+LAST+(C>0?' · '+fmt$(invested)+(idx?" in (today's $)":' total in'):'');
+  const bits=[ROWS.length+' histories', N+'-year hold', FIRST+'-'+LAST];
+  if(C>0) bits.push(fmt$(invested)+(idx?" contributed (today's $)":' contributed'));
+  $('#summary').innerHTML=bits.map(b=>'<span>'+b+'</span>').join('');
   $('#tblCount').textContent='('+ROWS.length+' starting years)';
   $('#legMode').textContent=mode==='nominal'?'Nominal':'Real';
   $('#histDot').style.background=mode==='nominal'?'var(--accent)':'var(--accent2)';
@@ -574,6 +646,8 @@ function renderTable(){
     <td data-label="${L(6)}">${(r.infl*100).toFixed(0)}%</td>
   </tr>`).join('');
   syncSortBar();
+  document.querySelectorAll('#tbl th').forEach(th=>th.setAttribute('aria-sort',
+    th.dataset.k===sortKey ? (sortDir===1?'ascending':'descending') : 'none'));
 }
 function syncSortBar(){
   const sel=$('#mobileSort'); if(!sel) return;
@@ -604,7 +678,7 @@ function drawGrowth(P,C,N){
   let maxV=1; ROWS.forEach(r=>r[pK].forEach(v=>{if(v>maxV)maxV=v;})); gRef.forEach(v=>{if(v>maxV)maxV=v;}); maxV*=1.05;
   const x=k=>padL+(N===0?0:k/N*plotW), y=v=>padT+plotH-(v/maxV)*plotH;
   gGeo={padL,padT,plotW,plotH,x,y,N,W};
-  gctx.font='11px -apple-system,Segoe UI,sans-serif'; gctx.textBaseline='middle';
+  gctx.font='11px "IBM Plex Sans",Helvetica,Arial,sans-serif'; gctx.textBaseline='middle';
   for(let t=0;t<=5;t++){const v=maxV*t/5,yy=y(v);
     gctx.strokeStyle=CH().grid;gctx.beginPath();gctx.moveTo(padL,yy);gctx.lineTo(W-padR,yy);gctx.stroke();
     gctx.fillStyle='#8f8b80';gctx.textAlign='right';gctx.fillText(shortMoney(v),padL-8,yy);}
@@ -658,7 +732,7 @@ function drawBars(){
   const maxV=Math.max(...rows.map(r=>r[eK]),median)*1.08;
   const per=plotW/rows.length, x=i=>padL+i*per, bw=Math.max(2,per*0.72), y=v=>padT+plotH-(v/maxV)*plotH;
   barGeo={padL,padT,plotH,per,x,y,eK,W};
-  bctx.font='11px -apple-system,Segoe UI,sans-serif'; bctx.textBaseline='middle';
+  bctx.font='11px "IBM Plex Sans",Helvetica,Arial,sans-serif'; bctx.textBaseline='middle';
   for(let t=0;t<=5;t++){const v=maxV*t/5,yy=y(v);
     bctx.strokeStyle=CH().grid;bctx.beginPath();bctx.moveTo(padL,yy);bctx.lineTo(W-padR,yy);bctx.stroke();
     bctx.fillStyle='#8f8b80';bctx.textAlign='right';bctx.fillText(shortMoney(v),padL-8,yy);}
@@ -705,7 +779,7 @@ function drawHist(medianCagr){
   const padL=42,padR=14,padT=14,padB=40, plotW=W-padL-padR, plotH=H-padT-padB;
   const maxC=Math.max(...counts,1), cw=plotW/nb, y=c=>padT+plotH-(c/maxC)*plotH;
   histGeo={padL,padT,plotW,plotH,cw,nb,y,lo,bw,W};
-  hctx.font='11px -apple-system,Segoe UI,sans-serif'; hctx.textBaseline='middle';
+  hctx.font='11px "IBM Plex Sans",Helvetica,Arial,sans-serif'; hctx.textBaseline='middle';
   const yticks=Math.min(maxC,5);
   for(let t=0;t<=yticks;t++){const c=Math.round(maxC*t/yticks),yy=y(c);
     hctx.strokeStyle=CH().grid;hctx.beginPath();hctx.moveTo(padL,yy);hctx.lineTo(W-padR,yy);hctx.stroke();
@@ -774,12 +848,20 @@ document.querySelectorAll('#modeToggle button').forEach(b=>{
   });
 });
 document.querySelectorAll('#tbl th').forEach(th=>{
-  th.addEventListener('click',()=>{
+  th.tabIndex=0;                                  // sorting must be keyboard-reachable
+  th.setAttribute('aria-sort','none');
+  const sort=()=>{
     const k=th.dataset.k;
     if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=k==='label'?1:-1;}
     renderTable();
+  };
+  th.addEventListener('click',sort);
+  th.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sort(); }
   });
 });
+// CSS content:attr() is not reliably announced, so mirror the tip into a label
+document.querySelectorAll('.info[data-tip]').forEach(el=>el.setAttribute('aria-label',el.dataset.tip));
 $('#mobileSort').addEventListener('change',e=>{
   sortKey=e.target.value; sortDir=sortKey==='label'?1:-1; renderTable();
 });
