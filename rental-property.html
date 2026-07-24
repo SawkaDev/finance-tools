@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Should you buy this rental? — a full underwriting model</title>
+<meta name="description" content="Underwrites a rental property the way an investor should: full year-by-year pro forma, cap rate, cash-on-cash, DSCR, after-tax IRR, depreciation and recapture, passive-loss rules, stress tests, the maximum price you should offer — and whether an index fund would simply have beaten it.">
+<script>
+(function(){var t=null;try{t=localStorage.getItem('rpa-theme');}catch(e){}
+ document.documentElement.setAttribute('data-theme',t||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  /* Same Swiss/International instrument language as the rest of the suite:
+     rules instead of cards, Archivo display, Plex Sans body, Plex Mono for
+     every number. Square corners everywhere; the one pill is the theme button. */
+  :root{
+    --paper:#f1f1ef; --plate:#fbfbf9; --band:#e8e8e5; --ink:#121213; --muted:#5f5f5e;
+    --hair:#d5d5d1; --hair2:#e3e3df; --track:#dededa;
+    --field:#ffffff; --wash:#e8e8e5; --shadow:0 8px 28px rgba(18,18,19,.12);
+    --red:#c02f22; --blue:#1b4dc1; --green:#147749; --amber:#8c5f00;
+    --accent:#1b4dc1; --accent2:#147749;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px;
+    --t-label:10.5px; --t-micro:11.5px; --t-xs:12.5px; --t-sm:13.5px;
+    --t-body:15px; --t-lead:19px;
+    --t-h2:clamp(21px,2vw,26px); --t-stat:clamp(24px,2.6vw,32px); --t-h1:clamp(30px,4.2vw,54px);
+    --r-pill:999px;
+    --disp:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --rule:2px solid var(--ink);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0d0d0e; --plate:#151517; --band:#1c1c1f; --ink:#ececeb; --muted:#9a9a97;
+    --hair:#2c2c30; --hair2:#212125; --track:#26262a;
+    --field:#151517; --wash:#1c1c1f; --shadow:0 8px 28px rgba(0,0,0,.6);
+    --red:#ef6a58; --blue:#6f9bff; --green:#3fb37a; --amber:#c08b2a;
+    --accent:#6f9bff; --accent2:#3fb37a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:var(--t-body)/1.6 var(--sans);
+    padding:0 var(--s5) var(--s8);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto}
+  .mast{display:flex;justify-content:space-between;align-items:center;gap:var(--s3);
+    flex-wrap:wrap;border-bottom:var(--rule);padding:var(--s6) 0 var(--s3);margin-bottom:var(--s7);
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .mast b{font-family:var(--disp);font-weight:700;color:var(--ink);font-size:var(--t-sm);letter-spacing:.02em}
+  .mast a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--hair)}
+  .mast a:hover{color:var(--ink);border-color:var(--ink)}
+  .hero{padding-bottom:var(--s7)}
+  h1{font-family:var(--disp);font-weight:700;font-size:var(--t-h1);line-height:1.05;
+     letter-spacing:-.025em;margin:0 0 var(--s5)}
+  .sub{font-size:var(--t-lead);line-height:1.5;color:var(--muted);margin:0}
+  .sub b{color:var(--ink);font-weight:500}
+
+  .controls{background:var(--band);border-bottom:1px solid var(--hair);
+    padding:var(--s5);margin:0 0 var(--s7)}
+  .row{display:flex;flex-wrap:wrap;gap:var(--s5) var(--s6);align-items:flex-end}
+  .ctl{display:flex;flex-direction:column;gap:var(--s2)}
+  .ctl label{font-family:var(--mono);font-size:var(--t-label);color:var(--muted);
+    text-transform:uppercase;letter-spacing:.1em}
+  input[type=number],select{background:var(--field);border:1px solid var(--hair);border-radius:0;
+    color:var(--ink);height:44px;padding:0 var(--s3);font-size:var(--t-body);outline:none;width:165px;
+    font-family:var(--mono);font-variant-numeric:tabular-nums;transition:border-color .2s}
+  select{width:200px;font-family:var(--sans);font-size:var(--t-sm)}
+  input[type=number]:focus,select:focus{border-color:var(--ink)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .chk{flex-direction:row;align-items:center;gap:var(--s2);height:44px}
+  .chk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+  .chk label{text-transform:none;letter-spacing:normal;font-size:var(--t-sm);font-family:var(--sans);cursor:pointer}
+  .grp{border-top:1px solid var(--hair);margin-top:var(--s5);padding-top:var(--s4)}
+  .grp > summary{cursor:pointer;list-style:none;display:flex;gap:var(--s4);align-items:baseline;
+    flex-wrap:wrap;font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted)}
+  .grp > summary::-webkit-details-marker{display:none}
+  .grp > summary::before{content:"\25B8";display:inline-block;transition:transform .2s}
+  .grp[open] > summary::before{transform:rotate(90deg)}
+  .grp > summary:hover{color:var(--ink)}
+  .grp .sum{font-family:var(--mono);font-size:var(--t-xs);color:var(--muted);
+    text-transform:none;letter-spacing:normal;flex:1;min-width:220px}
+  .grp .row{margin-top:var(--s5)}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:var(--rule)}
+  .card{padding:var(--s5) var(--s5) var(--s5) 0;border-right:1px solid var(--hair)}
+  .card:nth-child(3n){border-right:0;padding-right:0}
+  .card:not(:nth-child(3n+1)){padding-left:var(--s5)}
+  .card:nth-child(n+4){border-top:1px solid var(--hair)}
+  .card .k{font-family:var(--mono);font-size:var(--t-label);color:var(--muted);
+    text-transform:uppercase;letter-spacing:.1em;margin-bottom:var(--s3)}
+  .card .v{font-family:var(--disp);font-weight:700;font-size:var(--t-stat);letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;line-height:1}
+  .card .cagr{font-family:var(--mono);font-size:var(--t-xs);color:var(--muted);margin-top:var(--s2)}
+  .card .win{font-family:var(--mono);font-size:var(--t-micro);color:var(--muted);margin-top:var(--s4)}
+  .card.good .v{color:var(--green)} .card.bad .v{color:var(--red)} .card.warn .v{color:var(--amber)}
+  .card .v.dual{font-size:clamp(17px,1.85vw,22px);letter-spacing:-.02em}
+
+  .panel{border-top:1px solid var(--hair);padding:var(--s6) 0 var(--s7)}
+  .cards + .panel{border-top:var(--rule)}
+  .panel.argument{border-top:var(--rule)}
+  .panel.argument h2{font-size:var(--t-stat)}
+  .panel h2{font-family:var(--disp);font-size:var(--t-h2);font-weight:600;letter-spacing:-.02em;
+    margin:0 0 var(--s3);line-height:1.15}
+  .fig{display:block;font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:var(--s2)}
+  .panel .hint{color:var(--muted);font-size:var(--t-sm);line-height:1.65;margin:0 0 var(--s5);max-width:82ch}
+  .panel:last-child{border-bottom:1px solid var(--hair)}
+  canvas{width:100%;max-width:100%;display:block}
+  .legend{display:flex;gap:var(--s5);margin-top:var(--s4);font-family:var(--mono);
+    font-size:var(--t-xs);color:var(--muted);flex-wrap:wrap}
+  .legend .dot{display:inline-block;width:9px;height:9px;margin-right:var(--s2)}
+
+  /* the bar-row primitive used by the waterfall, decomposition, tornado and stress grid */
+  .trapgrid{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s5)}
+  .trapline{display:flex;align-items:center;gap:var(--s4)}
+  .trapline .tl{width:250px;font-size:var(--t-sm);color:var(--muted);flex:none;text-align:right}
+  .tbar{flex:1;background:transparent;border-bottom:1px solid var(--hair);height:22px;display:flex;
+    min-width:60px;position:relative}
+  .tfill{height:100%;transition:width .45s cubic-bezier(.16,1,.3,1)}
+  .trapline .tv{width:120px;flex:none;font-family:var(--mono);font-weight:500;
+    font-variant-numeric:tabular-nums}
+  .trapline .td{width:190px;flex:none;font-family:var(--mono);font-size:var(--t-xs)}
+  .trapline.sub{border-top:1px solid var(--hair)}
+  .trapline.sub .tl{color:var(--ink);font-weight:500}
+  .trapline.sub .tv{font-weight:600}
+  .traperr{font-size:var(--t-body);line-height:1.6;background:var(--wash);
+    border-left:3px solid var(--amber);padding:var(--s4) var(--s5)}
+  .traperr.ok{border-left-color:var(--green)}
+  .traperr.no{border-left-color:var(--red)}
+
+  /* scorecard */
+  .score{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:0;border-top:1px solid var(--hair)}
+  .sc{display:flex;gap:var(--s4);padding:var(--s4) var(--s5) var(--s4) 0;
+    border-bottom:1px solid var(--hair2)}
+  .sc .flag{width:4px;flex:none;background:var(--muted)}
+  .sc.pass .flag{background:var(--green)} .sc.warn .flag{background:var(--amber)}
+  .sc.fail .flag{background:var(--red)}
+  .sc .body{flex:1;min-width:0}
+  .sc .n{font-family:var(--mono);font-size:var(--t-label);text-transform:uppercase;
+    letter-spacing:.1em;color:var(--muted);margin-bottom:var(--s1)}
+  .sc .val{font-family:var(--disp);font-weight:700;font-size:var(--t-lead);
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .sc.pass .val{color:var(--green)} .sc.warn .val{color:var(--amber)} .sc.fail .val{color:var(--red)}
+  .sc .why{font-size:var(--t-xs);color:var(--muted);line-height:1.5;margin-top:var(--s2)}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:var(--t-sm);
+    font-variant-numeric:tabular-nums}
+  th,td{padding:var(--s2) var(--s3);text-align:right;border-bottom:1px solid var(--hair2)}
+  th:first-child,td:first-child{text-align:left;padding-left:0}
+  th:last-child,td:last-child{padding-right:0}
+  th{color:var(--muted);font-weight:500;font-size:var(--t-label);text-transform:uppercase;
+    letter-spacing:.1em;position:sticky;top:0;background:var(--paper);border-bottom:var(--rule)}
+  tbody tr:hover{background:var(--band)}
+  .tablewrap{max-height:560px;overflow:auto}
+  .muted{color:var(--muted)}
+  .neg{color:var(--red)}
+  .toggle{display:inline-flex;border:1px solid var(--hair);background:var(--field);height:40px}
+  .toggle button{background:transparent;border:0;color:var(--muted);padding:0 var(--s4);
+    cursor:pointer;font-size:var(--t-sm);font-family:var(--sans);transition:background .2s,color .2s}
+  .toggle button:hover{color:var(--ink)}
+  .toggle button.on{background:var(--ink);color:var(--paper)}
+  .themeBtn{background:transparent;border:1px solid var(--hair);color:var(--muted);
+    border-radius:var(--r-pill);padding:var(--s1) var(--s3);font:inherit;font-family:var(--mono);
+    letter-spacing:inherit;text-transform:inherit;cursor:pointer;transition:border-color .2s,color .2s}
+  .themeBtn:hover{color:var(--ink);border-color:var(--ink)}
+  .foot{color:var(--muted);font-size:var(--t-xs);line-height:1.8}
+  .foot p{margin:0 0 var(--s4)} .foot p:last-child{margin-bottom:0}
+  .foot b{color:var(--ink)}
+  .foot code{font-family:var(--mono);background:var(--track);padding:1px var(--s2);color:var(--ink)}
+  .pill{display:inline-block;border:1px solid var(--hair);padding:var(--s1) var(--s3);
+    font-family:var(--mono);font-size:var(--t-micro);color:var(--muted);margin:0 var(--s2) var(--s2) 0}
+  .info{color:var(--muted);cursor:help;font-style:normal}
+  [data-tip]{position:relative}
+  [data-tip]::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + var(--s2));z-index:20;
+    background:var(--plate);color:var(--ink);border:1px solid var(--ink);padding:var(--s3);
+    font-family:var(--sans);font-size:var(--t-xs);line-height:1.55;width:340px;max-width:min(340px,72vw);
+    white-space:normal;box-shadow:var(--shadow);opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .15s;text-transform:none;letter-spacing:normal;font-weight:400;text-align:left}
+  [data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;visibility:visible}
+  @keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .hero{animation:riseIn .6s cubic-bezier(.16,1,.3,1) both}
+  .controls{animation:riseIn .6s cubic-bezier(.16,1,.3,1) .07s both}
+  .cards{animation:riseIn .6s cubic-bezier(.16,1,.3,1) .14s both}
+  @media(max-width:1180px){
+    .cards{grid-template-columns:repeat(2,1fr)}
+    .card:nth-child(odd){border-right:1px solid var(--hair);padding-left:0;padding-right:var(--s5)}
+    .card:nth-child(even){border-right:0;padding-left:var(--s5);padding-right:0}
+    .card:nth-child(n+3){border-top:1px solid var(--hair)}
+  }
+  @media(max-width:760px){
+    body{padding:0 var(--s4) var(--s6)}
+    .controls{padding:var(--s4)}
+    .cards{grid-template-columns:1fr}
+    .card{border-right:0;padding:var(--s4) 0 !important;border-top:1px solid var(--hair)}
+    .card:first-child{border-top:0}
+    .trapline{flex-wrap:wrap;gap:var(--s2)}
+    .trapline .tl{width:100%;text-align:left;order:1}
+    .tbar{order:3;flex-basis:100%;height:12px}
+    .trapline .tv{order:2;width:auto;flex:1}
+    .trapline .td{order:2;width:auto;text-align:right}
+    input[type=number],select{width:100%}
+    .ctl{width:100%}
+    .tablewrap{max-height:none;overflow:visible}
+    #proforma thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+    #proforma,#proforma tbody,#proforma tr,#proforma td{display:block;width:100%}
+    #proforma tr{border:1px solid var(--hair);background:var(--plate);padding:var(--s3) var(--s4);
+      margin-bottom:var(--s3)}
+    #proforma td{border:0;padding:var(--s1) 0;display:flex;justify-content:space-between;
+      align-items:baseline;gap:var(--s4);text-align:right}
+    #proforma td::before{content:attr(data-label);color:var(--muted);font-size:var(--t-label);
+      font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;text-align:left;flex:none}
+    #proforma td:first-child{font-family:var(--disp);font-size:var(--t-lead);font-weight:700;
+      border-bottom:1px solid var(--hair2);padding-bottom:var(--s2);margin-bottom:var(--s2)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mast">
+    <span><b>Finance Tools</b> · Rental Underwriting</span>
+    <span style="display:flex;gap:var(--s4);align-items:center;flex-wrap:wrap">
+      <a href="index.html">S&amp;P Return Simulator</a>
+      <a href="roth-vs-traditional.html">Roth vs Traditional</a>
+      <span>2026 law</span>
+      <button class="themeBtn" id="themeBtn" type="button">Light mode</button>
+    </span>
+  </div>
+
+  <div class="hero">
+    <h1>Should you buy this rental?</h1>
+    <p class="sub">A rental property is four investments wearing one coat: <b>cash flow</b>,
+      <b>loan paydown</b>, <b>appreciation</b> and <b>tax shelter</b>. Most calculators price the
+      first and wave at the rest. This one builds the entire year-by-year pro forma, runs
+      depreciation and recapture through the actual passive-loss rules, taxes the sale properly,
+      stress-tests the deal until it breaks — and then asks the question almost no listing wants
+      asked: <b>would an index fund have beaten it?</b></p>
+  </div>
+
+  <div class="controls">
+    <div class="row">
+      <div class="ctl"><label>Purchase price</label><input id="price" type="number" value="335000" step="5000" min="1000"></div>
+      <div class="ctl"><label>Down payment %<span class="info" tabindex="0" role="note" data-tip="Conventional financing on a 1-unit investment property generally requires 15–25% down; 2–4 units require more. DSCR loans price around 20–25% down. Set 100% for an all-cash purchase — the model handles a zero loan.">&#9432;</span></label>
+        <input id="downPct" type="number" value="25" step="1" min="0" max="100"></div>
+      <div class="ctl"><label>Interest rate<span class="info" tabindex="0" role="note" data-tip="Investment-property mortgages price roughly 0.5–1.0 points above owner-occupied. As of mid-2026 that is broadly 7.1–7.7% conventional, and about 6.1–7.8% for DSCR loans depending on FICO, LTV and the DSCR tier itself.">&#9432;</span></label>
+        <input id="rate" type="number" value="7.25" step="0.125" min="0" max="20"></div>
+      <div class="ctl"><label>Monthly rent</label><input id="rent" type="number" value="2400" step="25" min="0"></div>
+      <div class="ctl"><label>Hold period (yrs)</label><input id="hold" type="number" value="10" step="1" min="1" max="40"></div>
+      <div class="ctl"><label>Index alternative<span class="info" tabindex="0" role="note" data-tip="The return you would have earned on the same money in a broad stock index instead. This is the single most-skipped input in real estate analysis: a deal that returns 9% is not a good deal if the money would have made 9% sitting still, with no tenants, no roof and no phone calls.">&#9432;</span></label>
+        <input id="altReturn" type="number" value="8" step="0.5" min="0" max="20"></div>
+    </div>
+
+    <details class="grp"><summary>Purchase, rehab &amp; loan terms <span class="sum" id="sumBuy"></span></summary>
+      <div class="row">
+        <div class="ctl"><label>Closing costs %<span class="info" tabindex="0" role="note" data-tip="Buyer-side closing costs typically run 2–5% of price: lender fees, title, escrow, appraisal, inspection, recording and transfer taxes. Everything except loan points is capitalised into your depreciable basis here.">&#9432;</span></label>
+          <input id="closingPct" type="number" value="3" step="0.25" min="0" max="15"></div>
+        <div class="ctl"><label>Loan points %<span class="info" tabindex="0" role="note" data-tip="Points paid to buy down the rate. On a rental these are NOT deductible in year one — they are amortised over the life of the loan, and the unamortised balance is written off when the loan is paid off at sale. Both are modelled.">&#9432;</span></label>
+          <input id="pointsPct" type="number" value="0" step="0.25" min="0" max="5"></div>
+        <div class="ctl"><label>Rehab / make-ready $</label><input id="rehab" type="number" value="0" step="1000" min="0"></div>
+        <div class="ctl"><label>Value after rehab (ARV)<span class="info" tabindex="0" role="note" data-tip="What the property is actually worth once the initial work is done. Defaults to the purchase price, i.e. you paid what it is worth. It follows the price automatically until you edit it. Set it higher for a value-add: the difference is forced equity you created on day one, and appreciation compounds from this number rather than from what you paid.">&#9432;</span></label>
+          <input id="arv" type="number" value="335000" step="5000" min="0"></div>
+        <div class="ctl"><label>Loan term (yrs)</label><input id="term" type="number" value="30" step="1" min="1" max="40"></div>
+        <div class="ctl"><label>Interest-only yrs</label><input id="ioYears" type="number" value="0" step="1" min="0" max="15"></div>
+        <div class="ctl"><label>Units</label><input id="units" type="number" value="1" step="1" min="1" max="50"></div>
+      </div>
+    </details>
+
+    <details class="grp"><summary>Income &amp; vacancy <span class="sum" id="sumInc"></span></summary>
+      <div class="row">
+        <div class="ctl"><label>Other income $/mo<span class="info" tabindex="0" role="note" data-tip="Laundry, parking, storage, pet rent, utility reimbursement. Defaults to 0 on purpose: never credit yourself with income you have not verified on a lease. Add it only once you know it is really there.">&#9432;</span></label>
+          <input id="otherIncome" type="number" value="0" step="25" min="0"></div>
+        <div class="ctl"><label>Vacancy %<span class="info" tabindex="0" role="note" data-tip="One vacant month in twenty is about 5%. Softer markets and higher-turnover properties justify 8–12%. This is time-vacant, not rent lost to non-payment — that is the next field.">&#9432;</span></label>
+          <input id="vacancy" type="number" value="6" step="0.5" min="0" max="50"></div>
+        <div class="ctl"><label>Credit loss %<span class="info" tabindex="0" role="note" data-tip="Non-payment, concessions, eviction losses and unpaid final months. Defaults to 0 because most investors fold this into the vacancy figure — if you leave it at 0, make sure your vacancy rate is carrying it. Separate it out when you want to model screening quality on its own.">&#9432;</span></label>
+          <input id="creditLoss" type="number" value="0" step="0.25" min="0" max="20"></div>
+        <div class="ctl"><label>Rent growth %/yr<span class="info" tabindex="0" role="note" data-tip="US rents have compounded near 3.9%/yr since 1980, but 2026 is running well below that at roughly 0.4–2.9% nationally depending on the series. Rent growth and expense growth are separate inputs here because assuming they are equal is what makes a bad pro forma look stable.">&#9432;</span></label>
+          <input id="rentGrowth" type="number" value="3" step="0.25" min="-5" max="15"></div>
+        <div class="ctl"><label>Turnovers per year<span class="info" tabindex="0" role="note" data-tip="0.5 means a tenant leaves every two years. Each turnover costs a leasing fee plus make-ready. Turnover, not repairs, is what usually kills a cash-flow projection.">&#9432;</span></label>
+          <input id="turnover" type="number" value="0.5" step="0.1" min="0" max="4"></div>
+        <div class="ctl"><label>Leasing fee (months rent)<span class="info" tabindex="0" role="note" data-tip="What a manager charges to PLACE a new tenant — advertising, showings, screening, lease signing. Separate from the ongoing management fee, and charged per new lease rather than per year: the annual cost is turnovers x this x monthly rent. The norm is 50-100% of one month's rent. Set it to 0 if you self-manage.">&#9432;</span></label><input id="leaseFee" type="number" value="0" step="0.25" min="0" max="2"></div>
+        <div class="ctl"><label>Make-ready per turn $<span class="info" tabindex="0" role="note" data-tip="Cleaning, paint, patching, carpet and small repairs between tenants. You pay this even when you self-manage, so it is the one turnover cost that never goes to zero.">&#9432;</span></label><input id="makeReady" type="number" value="800" step="100" min="0"></div>
+      </div>
+    </details>
+
+    <details class="grp"><summary>Operating expenses <span class="sum" id="sumOpex"></span></summary>
+      <div class="row">
+        <div class="ctl"><label>Property tax $/yr<span class="info" tabindex="0" role="note" data-tip="Do not copy the seller's tax bill. In many states a sale triggers reassessment at your purchase price, and the tax jumps the year after closing. Tick the reassessment box below and enter your county's millage rate instead.">&#9432;</span></label>
+          <input id="propTax" type="number" value="3616" step="100" min="0"></div>
+        <div class="ctl chk"><input id="reassess" type="checkbox"><label for="reassess">Reassess at purchase price</label></div>
+        <div class="ctl"><label>Millage / tax rate %</label><input id="millage" type="number" value="1.08" step="0.05" min="0" max="6"></div>
+        <div class="ctl"><label>Insurance $/yr<span class="info" tabindex="0" role="note" data-tip="Landlord (DP-3) policies run 15–25% above a comparable homeowners policy, averaging roughly $1,500/yr nationally in 2026 and $800–$3,000 for a single-family rental depending on state. Coastal and wildfire markets are far higher and rising fastest — which is why insurance has its own growth rate here.">&#9432;</span></label>
+          <input id="insurance" type="number" value="1700" step="100" min="0"></div>
+        <div class="ctl"><label>HOA $/mo</label><input id="hoa" type="number" value="0" step="25" min="0"></div>
+        <div class="ctl"><label>Management % of rent<span class="info" tabindex="0" role="note" data-tip="Professional management runs 8–10% of collected rent on single-family and 4–6% on larger multifamily, usually plus a leasing fee. Enter 0 only if you genuinely intend to self-manage forever — and remember that a deal that only works when you work for free is a job, not an investment.">&#9432;</span></label>
+          <input id="mgmt" type="number" value="0" step="0.5" min="0" max="20"></div>
+        <div class="ctl"><label>Maintenance % of rent</label><input id="maint" type="number" value="6" step="0.5" min="0" max="30"></div>
+        <div class="ctl"><label>CapEx reserve % of rent<span class="info" tabindex="0" role="note" data-tip="Roof, HVAC, water heater, flooring, windows. These do not happen every year, which is exactly why they must be reserved every year — 5–15% of rent is the common band, 8–12% typical for an older single-family. Reserves reduce your cash but are NOT immediately deductible: the model capitalises them and depreciates them, which is how the IRS actually treats them.">&#9432;</span></label>
+          <input id="capex" type="number" value="8" step="0.5" min="0" max="30"></div>
+        <div class="ctl"><label>Utilities $/mo (landlord)</label><input id="utilities" type="number" value="0" step="25" min="0"></div>
+        <div class="ctl"><label>Other $/yr<span class="info" tabindex="0" role="note" data-tip="Licensing and registration, legal and accounting, bookkeeping software, lawn and snow, pest, bank fees, LLC fees, travel to the property.">&#9432;</span></label>
+          <input id="otherExp" type="number" value="600" step="100" min="0"></div>
+        <div class="ctl"><label>Expense inflation %</label><input id="expGrowth" type="number" value="3" step="0.25" min="0" max="15"></div>
+        <div class="ctl"><label>Property tax growth %</label><input id="taxGrowth" type="number" value="3" step="0.25" min="0" max="15"></div>
+        <div class="ctl"><label>Insurance growth %</label><input id="insGrowth" type="number" value="6" step="0.5" min="0" max="25"></div>
+      </div>
+    </details>
+
+    <details class="grp"><summary>Appreciation &amp; exit <span class="sum" id="sumExit"></span></summary>
+      <div class="row">
+        <div class="ctl"><label>Appreciation %/yr<span class="info" tabindex="0" role="note" data-tip="Case-Shiller has averaged about 5.1% nominal since 2001, but that window contains a bubble and a recovery. It is running near 0.8% in 2026 and is forecast around 2.0–2.3% for 2027–28. Real (after-inflation) appreciation over the long run is closer to 1%. If your deal only works at 5%+, you are not buying a rental, you are betting on prices.">&#9432;</span></label>
+          <input id="appreciation" type="number" value="3.5" step="0.25" min="-10" max="20"></div>
+        <div class="ctl"><label>Exit value method</label><select id="exitMethod">
+          <option value="appr">Appreciation rate</option>
+          <option value="cap">Exit cap rate on NOI</option>
+        </select></div>
+        <div class="ctl"><label>Exit cap rate %<span class="info" tabindex="0" role="note" data-tip="Only used when the exit method is set to cap rate. Buyers price income property off its NOI; if cap rates expand 100bps between your purchase and your sale, your exit price falls even with rents up. Underwriting an exit cap ABOVE your entry cap is the honest way to model that risk.">&#9432;</span></label>
+          <input id="exitCap" type="number" value="6.5" step="0.25" min="1" max="20"></div>
+        <div class="ctl"><label>Selling costs %<span class="info" tabindex="0" role="note" data-tip="Commission plus title, transfer tax and seller concessions. Total agent commissions still average about 5.6% nationally in 2026 — the 2024 NAR settlement unbundled who negotiates the buyer-agent share, it did not eliminate it. 7% all-in is a realistic default.">&#9432;</span></label>
+          <input id="sellCost" type="number" value="7" step="0.5" min="0" max="15"></div>
+        <div class="ctl"><label>Inflation %</label><input id="inflation" type="number" value="2.5" step="0.1" min="0" max="12"></div>
+        <div class="ctl chk"><input id="realDollars" type="checkbox"><label for="realDollars">Show charts &amp; table in today's dollars</label></div>
+      </div>
+    </details>
+
+    <details class="grp"><summary>Taxes <span class="sum" id="sumTax"></span></summary>
+      <div class="row">
+        <div class="ctl"><label>Marginal income tax %<span class="info" tabindex="0" role="note" data-tip="Federal plus state marginal rate on ordinary income. This is the rate at which rental losses shelter income and at which rental profit is taxed — and the rate applied to depreciation recapture when it is below 25%.">&#9432;</span></label>
+          <input id="ordRate" type="number" value="32" step="1" min="0" max="60"></div>
+        <div class="ctl"><label>Capital gains %<span class="info" tabindex="0" role="note" data-tip="Federal long-term rates for 2026 are 0/15/20%, with the 15% band running to $545,500 single and $613,700 joint. Add your state's rate — most states tax capital gains as ordinary income.">&#9432;</span></label>
+          <input id="cgRate" type="number" value="15" step="1" min="0" max="45"></div>
+        <div class="ctl"><label>Land % of price<span class="info" tabindex="0" role="note" data-tip="Land is not depreciable. The split usually comes from the county assessor's own land-to-improvement ratio; 15–25% is typical, but urban infill can be far higher. A higher land share means less depreciation and a worse after-tax result.">&#9432;</span></label>
+          <input id="landPct" type="number" value="20" step="1" min="0" max="90"></div>
+        <div class="ctl"><label>Month placed in service<span class="info" tabindex="0" role="note" data-tip="Residential rental uses the mid-month convention: property placed in service in month M gets (12 − M + 0.5)/12 of a full year's depreciation in year one. Buying in December buys you almost none of it.">&#9432;</span></label>
+          <select id="placedMonth">
+          <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select></div>
+        <div class="ctl"><label>Loss treatment<span class="info" tabindex="0" role="note" data-tip="Rental losses are passive by default and can only offset passive income. Active participation (you set rents, approve tenants, own 10%+) unlocks up to $25,000 against ordinary income, phasing out between $100k and $150k of MAGI. Real-estate professional status (750+ hrs and more than half your working time) or a short-term rental averaging 7 days or less with material participation removes the cap entirely.">&#9432;</span></label>
+          <select id="lossMode">
+          <option value="active">Active participation ($25k allowance)</option>
+          <option value="passive">Passive — suspend all losses</option>
+          <option value="reps">REPS / STR — fully deductible</option>
+        </select></div>
+        <div class="ctl"><label>Your MAGI $<span class="info" tabindex="0" role="note" data-tip="Used for the $25,000 allowance phase-out, which drops 50 cents per dollar of MAGI above $100,000 and is gone at $150,000. Married filing separately gets half these numbers and is not modelled here.">&#9432;</span></label>
+          <input id="magi" type="number" value="100000" step="10000" min="0"></div>
+        <div class="ctl"><label>Cost segregation %<span class="info" tabindex="0" role="note" data-tip="A cost segregation study reclassifies typically 20–30% of basis into 5-, 7- and 15-year property. The One Big Beautiful Bill Act permanently restored 100% bonus depreciation for property acquired after 19 January 2025, so that reclassified slice is written off entirely in year one. The catch is on the way out: it is recaptured at ORDINARY rates, not 25%. Both halves are modelled.">&#9432;</span></label>
+          <input id="costSeg" type="number" value="0" step="5" min="0" max="40"></div>
+        <div class="ctl chk"><input id="niit" type="checkbox"><label for="niit">Subject to 3.8% NIIT</label></div>
+        <div class="ctl chk"><input id="qbi" type="checkbox" checked><label for="qbi">Claim 20% QBI deduction (§199A)</label></div>
+        <div class="ctl chk"><input id="exch1031" type="checkbox"><label for="exch1031">1031 exchange at sale (defer all tax)</label></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="panel argument">
+    <h2 id="verdictH">The verdict</h2>
+    <div id="verdictBody"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 1</span>
+    <h2>Where every rent dollar goes, in year one</h2>
+    <p class="hint">Bars are scaled to gross scheduled rent. Everything above the NOI line is what a
+      lender and an appraiser look at; everything below it is what actually lands in your account.
+      The gap between those two numbers is the whole reason people buy properties that lose money.</p>
+    <div id="waterfall"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 2</span>
+    <h2>The screening scorecard</h2>
+    <p class="hint">Eleven tests, each with the threshold practitioners actually use. None of them is
+      sufficient on its own — the rules of thumb exist to kill obviously bad deals fast, not to
+      approve good ones. Read the reds as disqualifiers and the ambers as things you must have an
+      answer for.</p>
+    <div class="score" id="scorecard"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 3</span>
+    <h2>Where the return actually comes from</h2>
+    <p class="hint">Total after-tax profit over the hold, split into its true sources. These sum
+      exactly — this is an identity, not an attribution estimate.</p>
+    <div id="decomp"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 4</span>
+    <h2>Against the index fund</h2>
+    <p class="hint">Both paths receive identical money at identical times. The index path starts with
+      the same cash you put into the property, and whenever the property demands another dollar out
+      of pocket, the index investor invests that dollar too. Property wealth is what you would net
+      <em>after selling</em> — commissions, loan payoff, recapture and capital gains all deducted —
+      plus the side account of reinvested cash flow.</p>
+    <canvas id="wealthC" height="330"></canvas>
+    <div class="legend" id="wealthLegend"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 5</span>
+    <h2>Cash flow, year by year</h2>
+    <p class="hint">Before tax and after tax. The after-tax bar is often the taller one in early
+      years — depreciation is a paper expense that shelters real cash — and the two converge as
+      the loan amortises and your interest deduction shrinks.</p>
+    <canvas id="cfC" height="290"></canvas>
+    <div class="legend" id="cfLegend"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 6</span>
+    <h2>How long to hold</h2>
+    <p class="hint">After-tax IRR if you sold at the end of each year. Early years are dominated by
+      the transaction costs you have to earn back; the curve then peaks and decays as depreciation
+      runs out and the amortisation benefit shifts from principal to interest already paid.</p>
+    <canvas id="holdC" height="280"></canvas>
+    <p class="hint" id="holdNote" style="margin-top:var(--s4)"></p>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 7</span>
+    <h2>Which of your assumptions actually decides this</h2>
+    <p class="hint">Each input moved to a plausible low and high, everything else held fixed, and the
+      full model re-run both times. Bar length is how much your ten-year outcome versus the index
+      swings on that one number alone.</p>
+    <div id="tornado"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 8</span>
+    <h2>Stress tests: what breaks it</h2>
+    <p class="hint">Every one of these has happened to someone this year. A deal that survives them
+      all is a good deal; a deal that only works in the base case is a bet.</p>
+    <div id="stress"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Figure 9</span>
+    <h2>What you should actually pay</h2>
+    <p class="hint">Solved by bisection against the live model — the price at which each test is
+      exactly satisfied, with every other input left as you set it.</p>
+    <div id="offers"></div>
+  </div>
+
+  <div class="panel">
+    <span class="fig">Table 1</span>
+    <h2>The year-by-year pro forma <span class="muted" style="font-weight:400;font-size:var(--t-sm)" id="proCount"></span></h2>
+    <p class="hint">The audit trail. Every headline number above was produced here, and this is where
+      you check it against a real operating statement rather than trusting it.</p>
+    <div class="tablewrap"><table id="proforma">
+      <thead><tr><th>Yr</th><th>Gross rent</th><th>EGI</th><th>OpEx</th><th>NOI</th><th>Debt svc</th>
+        <th>Cash flow</th><th>Deprec.</th><th>Taxable</th><th>Tax</th><th>After tax</th>
+        <th>Loan bal.</th><th>Value</th><th>Equity</th></tr></thead>
+      <tbody id="proBody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <h2>Data &amp; method</h2>
+    <div class="foot">
+      <div style="margin-bottom:var(--s4)">
+        <span class="pill">27.5-yr GDS: IRC §168</span>
+        <span class="pill">Passive losses: IRC §469</span>
+        <span class="pill">Recapture: §1250 / §1245</span>
+        <span class="pill">Bonus depreciation: OBBBA P.L. 119-21</span>
+        <span class="pill">QBI: §199A</span>
+        <span class="pill">NIIT: §1411</span>
+        <span class="pill">1031: §1031</span>
+      </div>
+      <p><b>What is actually computed.</b> For each year of the hold the model builds a complete
+        operating statement: gross scheduled rent grown at your rent growth, less vacancy and credit
+        loss, plus other income, giving effective gross income. Nine expense lines are grown at three
+        separate inflation rates — general expenses, property tax and insurance move independently
+        because in the real world they do. Management is charged on collected income, not scheduled
+        rent. Turnover cost is leasing fee plus make-ready, charged at your turnover frequency.
+        Subtracting all of it gives NOI; subtracting debt service gives cash flow before tax.</p>
+      <p><b>Debt is amortised monthly, not annually.</b> A twelve-month inner loop splits every
+        payment into interest and principal so the interest deduction and the loan balance are both
+        exact. An interest-only period is supported and the loan is re-amortised over the remaining
+        term when it ends. Setting the down payment to 100% removes the loan entirely.</p>
+      <p><b>Depreciation is the part most calculators get wrong.</b> Basis is purchase price less
+        land, plus capitalised closing costs, plus rehab — not the price you paid. Year one uses the
+        <b>mid-month convention</b>, so a December closing gets 1.5/12 of a year, not a full one.
+        Loan points are amortised over the loan term rather than deducted, with the unamortised
+        remainder written off at payoff. CapEx reserves are treated the way the IRS treats them: as
+        capital, added to basis and depreciated from the year they are spent, <em>not</em> as a
+        current deduction — which is why your taxable income is higher than your cash flow suggests.
+        Cost segregation reclassifies your chosen share of basis and expenses it immediately under
+        the 100% bonus depreciation that OBBBA made permanent for property acquired after 19 January
+        2025.</p>
+      <p><b>Losses do not simply vanish, and they do not simply deduct.</b> Under §469 a rental loss
+        is passive. With active participation the model applies the $25,000 special allowance and
+        phases it out at 50 cents per dollar of MAGI above $100,000, reaching zero at $150,000.
+        Whatever cannot be used is <b>suspended and carried forward</b>, offsets future passive
+        income year by year, and is released in full against the gain in the year you sell. Choosing
+        real-estate-professional status or the short-term-rental route (average stay of seven days or
+        less, with material participation) removes the ceiling. The §199A deduction is applied only
+        to positive net rental income, never to losses.</p>
+      <p><b>The sale is taxed in the right order.</b> Net proceeds are sale price less selling costs
+        less loan payoff. Gain is measured against adjusted basis — original basis plus capitalised
+        CapEx minus all accumulated depreciation, so depreciation you took reduces basis and enlarges
+        the gain. That gain is then split: any cost-segregation and bonus depreciation is recaptured
+        first at <b>ordinary</b> rates under §1245; straight-line depreciation is recaptured as
+        unrecaptured §1250 gain at the lesser of 25% or your ordinary rate; only what remains is taxed
+        at the long-term capital gains rate. NIIT adds 3.8% on top when ticked. Suspended passive
+        losses are released against all of it. Electing a 1031 exchange defers the entire bill and
+        the tool reports the size of what you deferred, because a deferral is a liability you still
+        own.</p>
+      <p><b>Why the index comparison is built the way it is.</b> Comparing a leveraged property IRR
+        against an unleveraged index return is not a comparison, it is a category error — leverage
+        raises expected return and raises risk together. The honest version holds the <em>cash flows
+        identical</em>: the index path starts with your full out-of-pocket at closing, and every year
+        the property demands more money, the index receives the same amount. Positive property cash
+        flow is reinvested at the index return in a side account. Both terminal values pay capital
+        gains on their gains. What is left is a difference in dollars you could actually spend.</p>
+      <p><b>Rules of thumb, and what they are worth.</b> The 1% rule (monthly rent ≥ 1% of price) and
+        the 50% rule (operating expenses ≈ 50% of gross income) are screening filters from a
+        lower-rate era; at 7%+ mortgage rates very few markets clear 1%, and the scorecard reports
+        both against the actual model rather than instead of it. The 50% rule is checked against your
+        own expense build-up, so a large divergence is a signal that one of your two estimates is
+        wrong. <b>Negative leverage</b> — cap rate below the loan constant — is flagged explicitly,
+        because it is the condition under which borrowing more makes your return worse rather than
+        better, and it is the defining feature of most 2026 deals.</p>
+      <p><b>Benchmarks used in the scorecard.</b> DSCR of 1.25 is the common lender floor, with 1.0
+        the absolute minimum on a DSCR product. Cash-on-cash of 8%+ is conventionally "strong",
+        4–8% acceptable. Vacancy of 5% represents one vacant month in twenty. CapEx reserves of
+        5–15% of rent, management at 8–10% for single-family and 4–6% for larger multifamily,
+        landlord insurance 15–25% above a homeowners policy. Break-even occupancy above 85% is
+        treated as fragile because a single bad tenant erases the year.</p>
+      <p><b>Known simplifications, stated plainly.</b> One tax rate is applied to ordinary income
+        rather than a full bracket walk, so a loss large enough to drop you a bracket is valued
+        slightly too highly. The $25,000 allowance is not halved for married-filing-separately.
+        State-level differences in depreciation conformity, transfer tax and rent control are not
+        modelled. Refinancing, HELOCs, portfolio-level financing and partnership splits are out of
+        scope. Cost-segregated components are all recaptured as §1245 ordinary income, which slightly
+        overstates recapture on the 15-year land-improvement slice. The index alternative pays capital
+        gains only at the end, ignoring dividend drag along the way. Insurance availability — not
+        price, availability — is the single largest unmodelled risk in coastal and wildfire markets.</p>
+      <p><b>The one thing this cannot know.</b> The property. No model can price a foundation crack,
+        a tenant who stops paying, a neighbourhood that turns, or an insurer that leaves the state.
+        The inputs above are estimates you supplied, and the stress panel exists because the honest
+        use of a model like this is to find out how wrong you can be and still be fine.</p>
+      <p><em>Not tax, legal or investment advice. This is a model, and every model is wrong in ways
+        its author did not anticipate. The year-by-year table exists so you can check it rather than
+        trust it.</em></p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   RENTAL PROPERTY UNDERWRITING MODEL
+   Pure functions first (no DOM), UI layer after. Every dollar that
+   appears on screen is produced by model() and nothing else.
+   ===================================================================== */
+
+/* ---- loan: monthly amortisation, interest-only aware ---------------- */
+function loanSchedule(P, annualRate, termYears, ioYears, holdYears){
+  const i = annualRate/12, n = Math.round(termYears*12), io = Math.round(ioYears*12);
+  // payment after the IO period, re-amortised over whatever term remains
+  const amortN = Math.max(1, n - io);
+  const pay = i>0 ? P*i/(1-Math.pow(1+i,-amortN)) : P/amortN;
+  let bal = P;
+  const years = [];
+  for(let y=1; y<=holdYears; y++){
+    let int=0, prin=0;
+    for(let m=0; m<12; m++){
+      const idx = (y-1)*12 + m;
+      if(idx >= n || bal <= 0) break;
+      const mi = bal*i;
+      let mp = idx < io ? 0 : Math.min(pay - mi, bal);
+      if(mp < 0) mp = 0;
+      int += mi; prin += mp; bal -= mp;
+    }
+    years.push({interest:int, principal:prin, balance:Math.max(0,bal), service:int+prin});
+  }
+  // year-1 monthly payment, for the PITIA / lender DSCR check
+  const firstPay = io>0 ? P*i : pay;
+  return {years:years, monthlyPay:firstPay};
+}
+
+/* ---- IRR by bisection -----------------------------------------------
+   Evaluates the NPV once per iteration (not three times) and stops as soon
+   as the bracket is tighter than a hundredth of a basis point. This runs
+   inside every sensitivity re-model, so its constant factor matters. */
+function irr(cf){
+  const npv = function(r){
+    let s=0, d=1;
+    for(let i=0;i<cf.length;i++){ s += cf[i]/d; d *= (1+r); }
+    return s;
+  };
+  let lo=-0.9999, hi=10;
+  let flo=npv(lo), fhi=npv(hi);
+  if(!isFinite(flo)||!isFinite(fhi)||flo*fhi>0) return null;
+  for(let k=0;k<80 && (hi-lo)>1e-6;k++){
+    const m=(lo+hi)/2, fm=npv(m);
+    if(flo*fm <= 0){ hi=m; fhi=fm; } else { lo=m; flo=fm; }
+  }
+  return (lo+hi)/2;
+}
+
+/* ---- the $25,000 special allowance, phased -------------------------- */
+function specialAllowance(magi){
+  return Math.max(0, Math.min(25000, 25000 - Math.max(0, magi-100000)*0.5));
+}
+
+/* =====================================================================
+   model(inp) -> everything. Deterministic, no globals, no DOM.
+   ===================================================================== */
+function model(inp, opts){
+  // The sensitivity, stress and max-offer panels re-run this model hundreds of
+  // times and none of them reads byHold, so that sweep is opt-in. Only the one
+  // primary run per redraw pays for it.
+  const wantByHold = !(opts && opts.byHold === false);
+  const price = Math.max(1, inp.price);
+  const hold  = Math.max(1, Math.round(inp.hold));
+  const down  = price * inp.downPct;
+  const loan0 = price - down;
+  const closing = price * inp.closingPct;
+  const points  = loan0 * inp.pointsPct;
+  const rehab   = inp.rehab;
+  const cashIn  = down + closing + points + rehab;
+
+  // value at time zero: what it is worth once the initial work is done
+  const value0 = inp.arv > 0 ? inp.arv : price + rehab;
+
+  /* ---- depreciable basis --------------------------------------------
+     Land is never depreciable. Closing costs (other than points) are
+     capitalised. Rehab is an improvement, so it is capitalised too. */
+  const land = price * inp.landPct;
+  const basis0 = (price - land) + Math.max(0, closing - points) + rehab;
+  const segBasis  = basis0 * inp.costSeg;          // written off in year 1
+  const slBasis   = basis0 - segBasis;             // straight-line over 27.5
+  const midMonth  = (12 - inp.placedMonth + 0.5)/12;
+  const annualSL  = slBasis / 27.5;
+
+  const pointsAmortAnnual = inp.term>0 ? points/inp.term : 0;
+
+  const L = loanSchedule(loan0, inp.rate, inp.term, inp.ioYears, hold);
+
+  // property tax: either the bill you were given, or a reassessment at price
+  const propTax0 = inp.reassess ? price * inp.millage : inp.propTax;
+
+  const allow = inp.lossMode==='active' ? specialAllowance(inp.magi) : 0;
+
+  let suspended = 0;                 // §469 carryforward
+  let accumSL = 0;                   // straight-line depreciation taken
+  let accumSeg = 0;                  // bonus/cost-seg depreciation taken
+  let capexCum = 0;                  // capital added to basis
+  let pointsAmortCum = 0;
+  const capexItems = [];             // {annual, yearsLeft}
+  const yr = [];
+
+  for(let y=1; y<=hold; y++){
+    const g = Math.pow(1+inp.rentGrowth, y-1);
+    const eg = Math.pow(1+inp.expGrowth, y-1);
+    const monthlyRent = inp.rent * g;
+    const grossRent = monthlyRent * 12;
+    const other     = inp.otherIncome * 12 * eg;
+    const vacLoss   = grossRent * inp.vacancy;
+    const credLoss  = grossRent * inp.creditLoss;
+    const egi       = grossRent - vacLoss - credLoss + other;
+
+    const eTax   = propTax0 * Math.pow(1+inp.taxGrowth, y-1);
+    const eIns   = inp.insurance * Math.pow(1+inp.insGrowth, y-1);
+    const eHoa   = inp.hoa * 12 * eg;
+    const eMgmt  = egi * inp.mgmt;
+    const eMaint = grossRent * inp.maint;
+    const eCapex = grossRent * inp.capex;
+    const eUtil  = inp.utilities * 12 * eg;
+    const eOther = inp.otherExp * eg;
+    const eTurn  = inp.turnover * (inp.leaseFee * monthlyRent + inp.makeReady * eg);
+
+    const opexCash = eTax+eIns+eHoa+eMgmt+eMaint+eCapex+eUtil+eOther+eTurn;
+    const opexDeductible = opexCash - eCapex;   // reserves are capital, not expense
+    const noi = egi - opexCash;
+    const noiNoRes = egi - opexDeductible;      // broker/appraiser convention
+
+    const d = L.years[y-1] || {interest:0, principal:0, balance:0, service:0};
+    const cfbt = noi - d.service;
+
+    // interim market value, on the same convention as the eventual exit so the
+    // equity column in the table cannot disagree with the sale it reports
+    const value = inp.exitMethod==='cap' && inp.exitCap>0
+      ? noiNoRes*(1+inp.rentGrowth)/inp.exitCap
+      : value0 * Math.pow(1+inp.appreciation, y);
+
+    /* ---- depreciation for the year ---------------------------------- */
+    let dep = 0;
+    if(y === 1){
+      dep += annualSL * midMonth;
+      dep += segBasis;                       // 100% bonus, OBBBA permanent
+      accumSeg += segBasis;
+      accumSL  += annualSL * midMonth;
+    } else if(y <= 28){
+      dep += annualSL;
+      accumSL += annualSL;
+    }
+    capexItems.forEach(function(it){
+      if(it.yearsLeft > 0){ dep += it.annual; accumSL += it.annual; it.yearsLeft--; }
+    });
+    // this year's reserve becomes depreciable capital from next year
+    capexItems.push({annual: eCapex/27.5, yearsLeft: Math.max(0, 28-y)});
+    capexCum += eCapex;
+
+    const pAm = Math.min(pointsAmortAnnual, Math.max(0, points - pointsAmortCum));
+    pointsAmortCum += pAm;
+
+    /* ---- taxable income and the §469 machinery ----------------------- */
+    const taxable = egi - opexDeductible - d.interest - dep - pAm;
+    let tax = 0, usedSusp = 0, deducted = 0;
+    if(taxable >= 0){
+      usedSusp = Math.min(suspended, taxable);
+      suspended -= usedSusp;
+      let net = taxable - usedSusp;
+      const qbiCut = inp.qbi ? net*0.20 : 0;
+      tax = (net - qbiCut) * inp.ordRate;
+      if(inp.niit && inp.lossMode!=='reps') tax += net * 0.038;
+    } else {
+      const loss = -taxable;
+      if(inp.lossMode === 'reps')        deducted = loss;
+      else if(inp.lossMode === 'active') deducted = Math.min(loss, allow);
+      else                               deducted = 0;
+      suspended += loss - deducted;
+      tax = -deducted * inp.ordRate;                    // negative tax = shelter
+    }
+
+    const cfat = cfbt - tax;
+
+    yr.push({y:y, grossRent:grossRent, other:other, vacLoss:vacLoss, credLoss:credLoss, egi:egi,
+      eTax:eTax, eIns:eIns, eHoa:eHoa, eMgmt:eMgmt, eMaint:eMaint, eCapex:eCapex, eUtil:eUtil,
+      eOther:eOther, eTurn:eTurn, opexCash:opexCash, opexDeductible:opexDeductible,
+      noi:noi, noiNoRes:noiNoRes, interest:d.interest, principal:d.principal,
+      service:d.service, balance:d.balance, cfbt:cfbt, dep:dep, pointsAmort:pAm,
+      taxable:taxable, tax:tax, cfat:cfat, suspended:suspended, value:value,
+      equity:value - d.balance, accumSL:accumSL, accumSeg:accumSeg, capexCum:capexCum});
+  }
+
+  /* ---- exit ---------------------------------------------------------- */
+  function exitAt(k){
+    const row = yr[k-1];
+    let salePrice;
+    if(inp.exitMethod === 'cap'){
+      // buyers price forward NOI; grow one more year, use the broker convention
+      const fwd = row.noiNoRes * (1+inp.rentGrowth);
+      salePrice = inp.exitCap>0 ? fwd/inp.exitCap : row.value;
+    } else {
+      salePrice = value0 * Math.pow(1+inp.appreciation, k);
+    }
+    const sellCosts = salePrice * inp.sellCost;
+    const netSale = salePrice - sellCosts;
+    const adjBasis = basis0 + row.capexCum - (row.accumSL + row.accumSeg);
+    const unamortPoints = Math.max(0, points - pointsAmortAnnual*k);
+    const gain = netSale - adjBasis;
+
+    let taxSale = 0, recap1245 = 0, recap1250 = 0, cgTaxable = 0, deferred = 0;
+    const suspRelease = row.suspended;
+    if(gain > 0){
+      recap1245 = Math.min(gain, row.accumSeg);
+      const rest1 = gain - recap1245;
+      recap1250 = Math.min(rest1, row.accumSL);
+      cgTaxable = Math.max(0, rest1 - recap1250);
+      taxSale = recap1245 * inp.ordRate
+              + recap1250 * Math.min(0.25, inp.ordRate)
+              + cgTaxable * inp.cgRate;
+      if(inp.niit) taxSale += gain * 0.038;
+    } else {
+      // a loss on sale is ordinary under §1231 for rental property
+      taxSale = gain * inp.ordRate;
+    }
+    // suspended losses and unamortised points are both released at disposition
+    taxSale -= (suspRelease + unamortPoints) * inp.ordRate;
+
+    if(inp.exch1031){ deferred = Math.max(0, taxSale); taxSale = 0; }
+
+    const netProceeds = netSale - row.balance - taxSale;
+    return {salePrice:salePrice, sellCosts:sellCosts, netSale:netSale, adjBasis:adjBasis,
+      gain:gain, recap1245:recap1245, recap1250:recap1250, cgTaxable:cgTaxable,
+      taxSale:taxSale, deferred:deferred, suspRelease:suspRelease,
+      netProceeds:netProceeds, balance:row.balance};
+  }
+
+  // exitAt is pure in k, and both the wealth curve and the hold sweep want every
+  // year of it — compute each one once.
+  const exitCache = [];
+  function exitOf(k){ return exitCache[k] || (exitCache[k] = exitAt(k)); }
+
+  const ex = exitOf(hold);
+
+  /* ---- IRR, both pre- and after-tax ---------------------------------- */
+  const cfPre = [-cashIn], cfAft = [-cashIn];
+  for(let k=1;k<=hold;k++){
+    const last = k===hold;
+    cfPre.push(yr[k-1].cfbt + (last ? (ex.netSale - ex.balance) : 0));
+    cfAft.push(yr[k-1].cfat + (last ? ex.netProceeds : 0));
+  }
+  const irrPre = irr(cfPre), irrAft = irr(cfAft);
+
+  /* ---- IRR by hold year (when to sell) -------------------------------- */
+  const byHold = [];
+  if(wantByHold){
+    for(let k=1;k<=hold;k++){
+      const e = exitOf(k);
+      const c = [-cashIn];
+      for(let j=1;j<=k;j++) c.push(yr[j-1].cfat + (j===k ? e.netProceeds : 0));
+      byHold.push({y:k, irr: irr(c), net: e.netProceeds});
+    }
+  }
+
+  /* ---- the index alternative, funded identically ---------------------- */
+  let side = 0, sideBasis = 0;      // reinvested property cash flow
+  let idx = cashIn, idxBasis = cashIn;
+  const wealth = [];
+  for(let k=1;k<=hold;k++){
+    const cf = yr[k-1].cfat;
+    side *= (1+inp.altReturn);
+    idx  *= (1+inp.altReturn);
+    if(cf > 0){ side += cf; sideBasis += cf; }
+    else { idx += -cf; idxBasis += -cf; }     // same dollar out of pocket, both paths
+    const e = exitOf(k);
+    const sideNet = side - Math.max(0, side - sideBasis)*inp.cgRate;
+    const idxNet  = idx  - Math.max(0, idx  - idxBasis )*inp.cgRate;
+    wealth.push({y:k, prop: e.netProceeds + sideNet, idx: idxNet,
+                 propRaw:e.netProceeds, side:sideNet});
+  }
+  const finalW = wealth[hold-1];
+  const advantage = finalW.prop - finalW.idx;
+
+  /* ---- year-1 headline metrics ---------------------------------------- */
+  const r1 = yr[0];
+  const capRate     = r1.noi / price;
+  const capRateNoRes= r1.noiNoRes / price;
+  const capAllIn    = r1.noi / (price + rehab + closing);
+  const coc         = cashIn>0 ? r1.cfbt / cashIn : Infinity;
+  const cocAft      = cashIn>0 ? r1.cfat / cashIn : Infinity;
+  const dscr        = r1.service>0 ? r1.noi / r1.service : Infinity;
+  const pitia       = L.monthlyPay*12 + propTax0 + inp.insurance + inp.hoa*12;
+  const dscrLender  = pitia>0 ? (r1.grossRent) / pitia : Infinity;
+  const loanConst   = loan0>0 ? r1.service/loan0 : 0;
+  const grm         = r1.grossRent>0 ? price / r1.grossRent : Infinity;
+  const onePct      = inp.rent / price;
+  const oer         = r1.egi>0 ? r1.opexCash / r1.egi : 1;
+  const gpi         = r1.grossRent + r1.other;
+  const breakEvenOcc= gpi>0 ? (r1.opexCash + r1.service) / gpi : 1;
+  const totalProfit = wealth.length ? (ex.netProceeds + yr.reduce(function(s,x){return s+x.cfat;},0) - cashIn) : 0;
+
+  /* ---- identity decomposition of total after-tax profit --------------- */
+  const sumCF = yr.reduce(function(s,x){ return s+x.cfat; }, 0);
+  const princPaid = loan0 - ex.balance;
+  const forced = value0 - price - rehab;
+  const apprGain = ex.salePrice - value0;
+  const decomp = [
+    {label:'Cash flow, after tax',        v: sumCF},
+    {label:'Loan principal paid down',    v: princPaid},
+    {label:'Appreciation',                v: apprGain},
+    {label:'Forced equity at purchase',   v: forced},
+    {label:'Selling costs',               v: -ex.sellCosts},
+    {label:'Tax on sale',                 v: -ex.taxSale},
+    {label:'Closing costs & points',      v: -(closing + points)}
+  ];
+
+  return {inp:inp, yr:yr, exit:ex, exitAt:exitAt, cashIn:cashIn, loan0:loan0, down:down,
+    closing:closing, points:points, value0:value0, basis0:basis0, segBasis:segBasis,
+    propTax0:propTax0, allow:allow, irrPre:irrPre, irrAft:irrAft, byHold:byHold,
+    wealth:wealth, advantage:advantage, capRate:capRate, capRateNoRes:capRateNoRes,
+    capAllIn:capAllIn, coc:coc, cocAft:cocAft, dscr:dscr, dscrLender:dscrLender,
+    loanConst:loanConst, grm:grm, onePct:onePct, oer:oer, breakEvenOcc:breakEvenOcc,
+    pitia:pitia, totalProfit:totalProfit, decomp:decomp, sumCF:sumCF, hold:hold,
+    monthlyPay:L.monthlyPay};
+}
+
+if(typeof module!=='undefined') module.exports = {model, loanSchedule, irr, specialAllowance};
+
+/* =====================================================================
+   UI LAYER
+   ===================================================================== */
+const $  = s => document.querySelector(s);
+const $$ = s => [].slice.call(document.querySelectorAll(s));
+const CHART = {
+  light:{red:'#c02f22',blue:'#1b4dc1',green:'#147749',amber:'#8c5f00',gray:'#5f5f5e',
+         grid:'#dededa',faint:'rgba(27,77,193,0.13)'},
+  dark:{red:'#ef6a58',blue:'#6f9bff',green:'#3fb37a',amber:'#c08b2a',gray:'#9a9a97',
+        grid:'#26262a',faint:'rgba(111,155,255,0.18)'}
+};
+const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+let stored=null; try{stored=localStorage.getItem('rpa-theme');}catch(e){}
+let theme = stored || (sysDark.matches?'dark':'light');
+const CH = () => CHART[theme];
+
+const fmt$ = v => (v<0?'−':'') + '$' + Math.round(Math.abs(v)).toLocaleString('en-US');
+const fmtK = v => { const a=Math.abs(v), s=v<0?'−':'';
+  return a>=1e6 ? s+'$'+(a/1e6).toFixed(a>=1e7?1:2)+'M'
+       : a>=1e3 ? s+'$'+Math.round(a/1e3)+'k' : s+'$'+Math.round(a); };
+const fmtPct = (v,d) => (v*100).toFixed(d===undefined?1:d)+'%';
+const fmtIRR = v => v===null||!isFinite(v) ? 'n/a' : fmtPct(v,1);
+
+/* [id, type, default] — 'p' is a percent field stored as a decimal */
+const FIELDS = [
+  ['price','n',335000],['downPct','p',25],['rate','p',7.25],['rent','n',2400],
+  ['hold','n',10],['altReturn','p',8],
+  ['closingPct','p',3],['pointsPct','p',0],['rehab','n',0],['arv','n',335000],
+  ['term','n',30],['ioYears','n',0],['units','n',1],
+  ['otherIncome','n',0],['vacancy','p',6],['creditLoss','p',0],['rentGrowth','p',3],
+  ['turnover','n',0.5],['leaseFee','n',0],['makeReady','n',800],
+  ['propTax','n',3616],['reassess','b',false],['millage','p',1.08],['insurance','n',1700],
+  ['hoa','n',0],['mgmt','p',0],['maint','p',6],['capex','p',8],['utilities','n',0],
+  ['otherExp','n',600],['expGrowth','p',3],['taxGrowth','p',3],['insGrowth','p',6],
+  ['appreciation','p',3.5],['exitMethod','s','appr'],['exitCap','p',6.5],['sellCost','p',7],
+  ['inflation','p',2.5],['realDollars','b',false],
+  ['ordRate','p',32],['cgRate','p',15],['landPct','p',20],['placedMonth','n',1],
+  ['lossMode','s','active'],['magi','n',100000],['costSeg','p',0],
+  ['niit','b',false],['qbi','b',true],['exch1031','b',false]
+];
+function readInputs(){
+  const o = {};
+  FIELDS.forEach(function(f){
+    const k=f[0], t=f[1], d=f[2], el=$('#'+k);
+    if(!el){ o[k] = (t==='p'? d/100 : d); return; }
+    if(t==='b') o[k] = el.checked;
+    else if(t==='s') o[k] = el.value;
+    else { const v = parseFloat(el.value);
+           o[k] = isFinite(v) ? (t==='p'? v/100 : v) : (t==='p'? d/100 : d); }
+  });
+  o.price = Math.max(1000, o.price);
+  o.hold  = Math.max(1, Math.min(40, Math.round(o.hold)));
+  o.term  = Math.max(1, Math.min(40, Math.round(o.term)));
+  o.ioYears = Math.max(0, Math.min(o.term-1, Math.round(o.ioYears)));
+  o.downPct = Math.max(0, Math.min(1, o.downPct));
+  o.landPct = Math.max(0, Math.min(0.9, o.landPct));
+  o.units = Math.max(1, Math.round(o.units));
+  o.placedMonth = Math.max(1, Math.min(12, Math.round(o.placedMonth)));
+  return o;
+}
+
+/* ---- canvas helpers -------------------------------------------------- */
+function setup(cv, h){
+  const dpr = window.devicePixelRatio||1, W = cv.clientWidth||900;
+  cv.width = W*dpr; cv.height = h*dpr; cv.style.height = h+'px';
+  const c = cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,h);
+  c.font = '11px "IBM Plex Mono",ui-monospace,Menlo,monospace'; c.textBaseline='middle';
+  return {c:c, W:W};
+}
+function grid(c, W, padL, padR, padT, plotH, hi, lo, fmt){
+  for(let t=0;t<=5;t++){
+    const v = lo + (hi-lo)*t/5, y = padT + plotH - (v-lo)/(hi-lo)*plotH;
+    c.strokeStyle = CH().grid; c.beginPath(); c.moveTo(padL,y); c.lineTo(W-padR,y); c.stroke();
+    c.fillStyle = CH().gray; c.textAlign='right'; c.textBaseline='middle'; c.fillText(fmt(v), padL-8, y);
+  }
+}
+function bar(label, value, scale, colour, note, isSub){
+  const w = Math.max(0.6, Math.abs(value)/scale*100);
+  return '<div class="trapline'+(isSub?' sub':'')+'"><span class="tl">'+label+'</span>'+
+    '<div class="tbar"><div class="tfill" style="width:'+Math.min(100,w)+'%;background:'+colour+'"></div></div>'+
+    '<span class="tv">'+fmt$(value)+'</span><span class="td">'+(note||'')+'</span></div>';
+}
+
+/* ===== the run ======================================================== */
+let R = null;
+function run(){
+  const inp = readInputs();
+  R = model(inp);
+  drawCards(); drawVerdict(); drawWaterfall(); drawScorecard(); drawDecomp();
+  drawWealth(); drawCashflow(); drawHold(); drawTornado(); drawStress();
+  drawOffers(); drawProforma(); drawSummaries();
+}
+const defl = k => R.inp.realDollars ? 1/Math.pow(1+R.inp.inflation, k) : 1;
+
+/* ---- verdict cards ---------------------------------------------------- */
+function drawCards(){
+  const r1 = R.yr[0];
+  const mo = r1.cfat/12, moPre = r1.cfbt/12;
+  const cocCls = R.coc>=0.08?'good':(R.coc>=0.04?'warn':'bad');
+  const dscrCls = R.dscr>=1.25?'good':(R.dscr>=1?'warn':'bad');
+  const advCls = R.advantage>0?'good':'bad';
+  const capCls = R.capRate>=0.06?'good':(R.capRate>=0.045?'warn':'bad');
+  const irrCls = (R.irrAft!==null && R.irrAft>=R.inp.altReturn)?'good':
+                 (R.irrAft!==null && R.irrAft>=R.inp.altReturn-0.02)?'warn':'bad';
+  const cfCls = mo>=100?'good':(mo>=0?'warn':'bad');
+  $('#cards').innerHTML = [
+    '<div class="card '+cfCls+'"><div class="k">Monthly cash flow, after tax</div>'+
+      '<div class="v">'+fmt$(mo)+'</div>'+
+      '<div class="cagr">'+fmt$(moPre)+'/mo before tax'+
+        (R.inp.units>1 ? ' · '+fmt$(mo/R.inp.units)+' per unit' : '')+'</div>'+
+      '<div class="win">'+(mo<0 ? '&#9888; you fund this property every month'
+        : 'year 1, at '+fmtPct(R.inp.vacancy,0)+' vacancy')+'</div></div>',
+
+    '<div class="card '+cocCls+'"><div class="k">Cash-on-cash return</div>'+
+      '<div class="v">'+fmtPct(R.coc)+'</div>'+
+      '<div class="cagr">'+fmtPct(R.cocAft)+' after tax · on '+fmtK(R.cashIn)+' invested</div>'+
+      '<div class="win">'+(R.coc>=0.08?'strong — 8%+ is the usual bar'
+        :R.coc>=0.04?'acceptable, not exciting':'below what cash in the bank pays')+'</div></div>',
+
+    '<div class="card '+capCls+'"><div class="k">Cap rate <span class="info" tabindex="0" role="note" '+
+      'data-tip="NOI divided by purchase price, with capital reserves treated as an expense. '+
+      'Brokers usually quote cap rates WITHOUT reserves, which makes the same property look better — '+
+      'that number is shown underneath so you can compare like with like.">&#9432;</span></div>'+
+      '<div class="v">'+fmtPct(R.capRate,2)+'</div>'+
+      '<div class="cagr">'+fmtPct(R.capRateNoRes,2)+' on the broker convention</div>'+
+      '<div class="win">loan constant '+fmtPct(R.loanConst,2)+' — '+
+        (R.loan0<=0 ? 'no loan' : R.capRate>=R.loanConst ? 'positive leverage'
+          : '&#9888; NEGATIVE leverage')+'</div></div>',
+
+    '<div class="card '+dscrCls+'"><div class="k">DSCR <span class="info" tabindex="0" role="note" '+
+      'data-tip="NOI divided by annual debt service. The second figure is the lender'+"'"+'s own test on a '+
+      'DSCR loan — gross rent divided by principal, interest, taxes, insurance and HOA. It omits '+
+      'management, maintenance, CapEx and vacancy entirely, which is why a lender will happily '+
+      'approve a property that does not actually cover itself.">&#9432;</span></div>'+
+      '<div class="v">'+(isFinite(R.dscr)?R.dscr.toFixed(2):'—')+'</div>'+
+      '<div class="cagr">'+(isFinite(R.dscrLender)?R.dscrLender.toFixed(2):'—')+
+        ' on the lender convention (rent ÷ PITIA)</div>'+
+      '<div class="win">'+(R.loan0<=0?'all cash — no debt to cover'
+        : (R.dscr<1 && R.dscrLender>=1.25) ? '&#9888; lender says yes, the property says no'
+        : R.dscr>=1.25?'clears the usual 1.25 floor'
+        : R.dscr>=1?'thin — most lenders want 1.25':'&#9888; NOI does not cover debt service')+'</div></div>',
+
+    '<div class="card '+irrCls+'"><div class="k">After-tax IRR, '+R.hold+' yrs</div>'+
+      '<div class="v">'+fmtIRR(R.irrAft)+'</div>'+
+      '<div class="cagr">'+fmtIRR(R.irrPre)+' before tax · index alt '+fmtPct(R.inp.altReturn,1)+'</div>'+
+      '<div class="win">'+(R.irrAft===null?'no meaningful rate of return'
+        : R.irrAft>=R.inp.altReturn ? 'beats the index by '+fmtPct(R.irrAft-R.inp.altReturn,1)+'/yr'
+        : 'trails the index by '+fmtPct(R.inp.altReturn-R.irrAft,1)+'/yr')+'</div></div>',
+
+    '<div class="card '+advCls+'"><div class="k">Vs. the index fund, '+R.hold+' yrs</div>'+
+      '<div class="v">'+fmtK(R.advantage)+'</div>'+
+      '<div class="cagr">'+fmtK(R.wealth[R.hold-1].prop)+' property vs '+
+        fmtK(R.wealth[R.hold-1].idx)+' index</div>'+
+      '<div class="win">after-tax, same money in at the same times</div></div>'
+  ].join('');
+}
+
+/* ---- the verdict ------------------------------------------------------ */
+function drawVerdict(){
+  const r1 = R.yr[0], mo = r1.cfat/12;
+  const adv = R.advantage;
+  const rel = Math.abs(adv) / Math.max(1, Math.abs(R.wealth[R.hold-1].idx));
+  let head, cls, body;
+
+  const problems = [];
+  if(R.dscr < 1 && R.loan0>0) problems.push('NOI does not cover debt service (DSCR '+R.dscr.toFixed(2)+')');
+  if(mo < 0) problems.push('it takes '+fmt$(-mo)+' out of your pocket every month in year one');
+  if(R.capRate < R.loanConst && R.loan0>0) problems.push('the cap rate is below the loan constant, so the borrowing is actively working against you');
+  if(R.breakEvenOcc > 0.9) problems.push('break-even occupancy is '+fmtPct(R.breakEvenOcc,0)+' — barely any margin for a bad month');
+  if(R.oer > 0.6) problems.push('operating expenses eat '+fmtPct(R.oer,0)+' of income');
+
+  if(adv > 0 && rel > 0.10 && problems.length===0){
+    head='Buy it'; cls='ok';
+    body='On your numbers this property ends the '+R.hold+'-year hold <b>'+fmtK(adv)+
+      '</b> ahead of the same money in an index fund, after every tax and every commission — '+
+      'and it does it without breaking any of the structural tests. ';
+  } else if(adv > 0 && problems.length===0){
+    head='Marginally worth it'; cls='';
+    body='The property wins, but only by <b>'+fmtK(adv)+'</b> over '+R.hold+' years — about '+
+      fmtPct(rel,0)+' more than doing nothing. That is a thin margin to accept in exchange for '+
+      'tenants, illiquidity, concentration in one asset in one street, and the work. ';
+  } else if(adv > 0){
+    head='It works, but it is fragile'; cls='';
+    body='The property ends <b>'+fmtK(adv)+'</b> ahead of the index — but on the way there: '+
+      problems.join('; ')+'. ';
+  } else {
+    head='Pass'; cls='no';
+    body='On your own assumptions the index fund ends <b>'+fmtK(-adv)+' ahead</b>, after tax, '+
+      'with the same money invested at the same times. '+
+      (problems.length ? 'And structurally: '+problems.join('; ')+'. ' : '');
+  }
+
+  // what is carrying the deal
+  const d = R.decomp;
+  const pos = d.filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});
+  const carrier = pos.length ? pos[0] : null;
+  if(carrier){
+    const share = carrier.v / pos.reduce(function(s,x){return s+x.v;},0);
+    body += 'The single largest source of return here is <b>'+carrier.label.toLowerCase()+
+      '</b> at '+fmtK(carrier.v)+', or '+fmtPct(share,0)+' of everything the deal produces. ';
+    if(/apprec/i.test(carrier.label)){
+      body += 'That is the answer you least want: appreciation is the one component you do not '+
+        'control and cannot verify. If it comes in at '+fmtPct(R.inp.appreciation/2,1)+
+        ' instead of '+fmtPct(R.inp.appreciation,1)+', check Figure 7 before you sign anything.';
+    } else if(/cash flow/i.test(carrier.label)){
+      body += 'That is the answer you want: cash flow is the component you can verify with a rent '+
+        'roll and a bank statement rather than a forecast.';
+    } else if(/principal/i.test(carrier.label)){
+      body += 'Note what that means: your tenant is buying the property for you, but slowly, and '+
+        'the money is locked in the walls until you sell or refinance.';
+    }
+  }
+  if(R.inp.exch1031 && R.exit.deferred>0){
+    body += ' <b>You have elected a 1031 exchange</b>, so '+fmtK(R.exit.deferred)+
+      ' of tax is deferred rather than avoided — that is a liability that follows you into the '+
+      'next property, and it is not counted as a cost above.';
+  }
+
+  $('#verdictH').textContent = head;
+  $('#verdictBody').innerHTML = '<div class="traperr '+cls+'">'+body+'</div>';
+}
+
+/* ---- Figure 1: year-1 waterfall --------------------------------------- */
+function drawWaterfall(){
+  const r = R.yr[0], S = r.grossRent, C = CH();
+  const rows = [];
+  rows.push(bar('Gross scheduled rent', r.grossRent, S, C.gray, '<span class="muted">'+fmt$(R.inp.rent)+'/mo × 12</span>'));
+  rows.push(bar('Vacancy', -r.vacLoss, S, C.red, '<span class="muted">'+fmtPct(R.inp.vacancy,1)+'</span>'));
+  rows.push(bar('Credit loss & concessions', -r.credLoss, S, C.red, '<span class="muted">'+fmtPct(R.inp.creditLoss,1)+'</span>'));
+  rows.push(bar('Other income', r.other, S, C.green, '<span class="muted">laundry, pet, parking</span>'));
+  rows.push(bar('Effective gross income', r.egi, S, C.blue, '<span class="muted">what you collect</span>', true));
+  const ex = [
+    ['Property tax', r.eTax, R.inp.reassess?'reassessed at price':'as entered'],
+    ['Insurance', r.eIns, 'growing '+fmtPct(R.inp.insGrowth,0)+'/yr'],
+    ['Management', r.eMgmt, fmtPct(R.inp.mgmt,0)+' of collected'],
+    ['Maintenance & repairs', r.eMaint, fmtPct(R.inp.maint,0)+' of rent'],
+    ['CapEx reserve', r.eCapex, fmtPct(R.inp.capex,0)+' of rent'],
+    ['Turnover & leasing', r.eTurn, R.inp.turnover.toFixed(1)+' turns/yr'],
+    ['HOA', r.eHoa, ''], ['Utilities', r.eUtil, ''], ['Other', r.eOther, 'licences, legal, software']
+  ];
+  ex.forEach(function(e){
+    if(e[1] <= 0) return;
+    rows.push(bar(e[0], -e[1], S, C.red, '<span class="muted">'+e[2]+'</span>'));
+  });
+  rows.push(bar('Net operating income', r.noi, S, C.blue,
+    '<span class="muted">cap rate '+fmtPct(R.capRate,2)+'</span>', true));
+  if(R.loan0>0){
+    rows.push(bar('Mortgage interest', -r.interest, S, C.red, '<span class="muted">deductible</span>'));
+    rows.push(bar('Principal', -r.principal, S, C.amber, '<span class="muted">not an expense — equity</span>'));
+  }
+  rows.push(bar('Cash flow before tax', r.cfbt, S, r.cfbt>=0?C.green:C.red,
+    '<span class="muted">'+fmt$(r.cfbt/12)+'/mo</span>', true));
+  rows.push(bar('Depreciation (paper only)', -r.dep, S, C.gray,
+    '<span class="muted">no cash leaves</span>'));
+  rows.push(bar(r.taxable>=0?'Taxable income':'Taxable LOSS', r.taxable, S,
+    r.taxable>=0?C.amber:C.green, '<span class="muted">'+(r.taxable<0?'shelters other income':'')+'</span>'));
+  rows.push(bar(r.tax>=0?'Income tax':'Tax saved', -r.tax, S, r.tax<=0?C.green:C.red,
+    '<span class="muted">at '+fmtPct(R.inp.ordRate,0)+'</span>'));
+  rows.push(bar('Cash flow after tax', r.cfat, S, r.cfat>=0?C.green:C.red,
+    '<span class="muted">'+fmt$(r.cfat/12)+'/mo</span>', true));
+
+  let note;
+  if(r.taxable < 0 && R.inp.lossMode==='passive'){
+    note = 'Your year-one <b>loss of '+fmt$(-r.taxable)+'</b> is suspended, not deducted — under '+
+      '§469 a passive loss can only offset passive income. It carries forward and is released '+
+      'against the gain when you sell, so it is worth something eventually, just not now.';
+  } else if(r.taxable < 0 && R.inp.lossMode==='active'){
+    const used = Math.min(-r.taxable, R.allow);
+    note = 'Your year-one loss is <b>'+fmt$(-r.taxable)+'</b>. With active participation and MAGI of '+
+      fmtK(R.inp.magi)+', the $25,000 allowance is worth <b>'+fmt$(R.allow)+'</b> here, so '+
+      fmt$(used)+' shelters your ordinary income immediately and '+fmt$(Math.max(0,-r.taxable-used))+
+      ' is suspended for later.';
+  } else if(r.taxable < 0){
+    note = 'Your year-one loss of <b>'+fmt$(-r.taxable)+'</b> is fully deductible against ordinary '+
+      'income under the status you selected — worth <b>'+fmt$(-r.tax)+'</b> in tax saved. That '+
+      'status carries real substantiation requirements; a contemporaneous time log is not optional.';
+  } else {
+    note = 'The property shows <b>taxable income of '+fmt$(r.taxable)+'</b> in year one even though '+
+      'cash flow is '+fmt$(r.cfbt)+' — depreciation of '+fmt$(r.dep)+' was not enough to erase it. '+
+      'Note that principal repayment is not deductible: it is the classic gap between what you can '+
+      'spend and what you are taxed on.';
+  }
+  $('#waterfall').innerHTML = '<div class="trapgrid">'+rows.join('')+'</div><div class="traperr">'+note+'</div>';
+}
+
+/* ---- Figure 2: scorecard ---------------------------------------------- */
+function drawScorecard(){
+  const r1 = R.yr[0], mo = r1.cfbt/12/R.inp.units;
+  function card(name, val, state, why){
+    return '<div class="sc '+state+'"><div class="flag"></div><div class="body">'+
+      '<div class="n">'+name+'</div><div class="val">'+val+'</div>'+
+      '<div class="why">'+why+'</div></div></div>';
+  }
+  const t = [];
+  t.push(card('1% rule', fmtPct(R.onePct,2)+' of price',
+    R.onePct>=0.01?'pass':(R.onePct>=0.007?'warn':'fail'),
+    'Monthly rent ÷ price. 1%+ is the classic screen; at 2026 mortgage rates very few markets '+
+    'clear it, so treat 0.7–1.0% as normal and below 0.7% as needing appreciation to work.'));
+  t.push(card('Cap rate', fmtPct(R.capRate,2),
+    R.capRate>=0.06?'pass':(R.capRate>=0.045?'warn':'fail'),
+    'NOI ÷ price, reserves included. Compare it to actual sales in this submarket, not to a '+
+    'national number — a 5% cap is fine in Seattle and a disaster in Cleveland.'));
+  t.push(card('Leverage', R.loan0<=0?'All cash':(R.capRate>=R.loanConst?'Positive':'NEGATIVE'),
+    R.loan0<=0?'pass':(R.capRate>=R.loanConst?'pass':'fail'),
+    'Cap rate '+fmtPct(R.capRate,2)+' vs loan constant '+fmtPct(R.loanConst,2)+
+    '. When the loan costs more than the asset yields, every extra dollar borrowed lowers your '+
+    'return. It is the defining condition of most deals underwritten in 2026.'));
+  t.push(card('Cash-on-cash', fmtPct(R.coc),
+    R.coc>=0.08?'pass':(R.coc>=0.04?'warn':'fail'),
+    'Year-one pre-tax cash flow ÷ total cash invested ('+fmtK(R.cashIn)+'). 8%+ is conventionally '+
+    'strong, 4–8% acceptable, negative means you are subsidising a tenant.'));
+  t.push(card('DSCR', isFinite(R.dscr)?R.dscr.toFixed(2):'no debt',
+    R.loan0<=0?'pass':(R.dscr>=1.25?'pass':(R.dscr>=1?'warn':'fail')),
+    'NOI ÷ annual debt service. 1.25 is the standard lender floor; 1.00 is the absolute minimum on '+
+    'a DSCR product and leaves nothing for a surprise.'));
+  t.push(card('Operating expense ratio', fmtPct(R.oer,0),
+    R.oer<=0.5?'pass':(R.oer<=0.6?'warn':'fail'),
+    'The 50% rule says half of gross income goes to operating expenses. Yours is '+fmtPct(R.oer,0)+
+    '. A number far below 50% usually means a line item is missing, not that you found a bargain.'));
+  t.push(card('Break-even occupancy', fmtPct(R.breakEvenOcc,0),
+    R.breakEvenOcc<=0.85?'pass':(R.breakEvenOcc<=0.92?'warn':'fail'),
+    'The occupancy at which expenses plus debt service exactly consume income. Above 85% you have '+
+    'less than two vacant months of cushion in a year.'));
+  t.push(card('Gross rent multiplier', isFinite(R.grm)?R.grm.toFixed(1):'—',
+    R.grm<=8?'pass':(R.grm<=12?'warn':'fail'),
+    'Price ÷ annual gross rent. Roughly the inverse of the 1% rule: 4–7 is a strong market for '+
+    'buyers, above 12 means you are paying for something other than income.'));
+  t.push(card('Cash flow per unit', fmt$(mo)+'/mo',
+    mo>=150?'pass':(mo>=0?'warn':'fail'),
+    'Pre-tax, per unit, year one. $100–200 per door is the usual minimum cushion because a single '+
+    'water heater is a month of it.'));
+  t.push(card('After-tax IRR vs index', fmtIRR(R.irrAft)+' vs '+fmtPct(R.inp.altReturn,1),
+    (R.irrAft!==null&&R.irrAft>=R.inp.altReturn)?'pass':
+      (R.irrAft!==null&&R.irrAft>=R.inp.altReturn-0.02)?'warn':'fail',
+    'The only test that asks whether this beats doing nothing. Remember the property IRR is '+
+    'leveraged and the index return is not, so a small edge is not really an edge.'));
+  t.push(card('Reserves budgeted', fmtPct(R.inp.capex+R.inp.maint,0)+' of rent',
+    (R.inp.capex+R.inp.maint)>=0.12?'pass':((R.inp.capex+R.inp.maint)>=0.08?'warn':'fail'),
+    'Maintenance plus CapEx. Practitioners run 5–15% for capital alone on top of repairs; budgeting '+
+    'under 10% combined is how a profitable spreadsheet becomes an unprofitable property.'));
+  $('#scorecard').innerHTML = t.join('');
+}
+
+/* ---- Figure 3: decomposition ------------------------------------------ */
+function drawDecomp(){
+  const d = R.decomp.filter(function(x){ return Math.abs(x.v) > 1; });
+  const mx = Math.max.apply(null, d.map(function(x){return Math.abs(x.v);})) || 1;
+  const C = CH();
+  const rows = d.sort(function(a,b){ return b.v-a.v; }).map(function(x){
+    return bar(x.label, x.v, mx, x.v>0?C.green:C.red,
+      '<span class="muted">'+(x.v>0?'adds':'costs')+'</span>');
+  });
+  rows.push(bar('Total after-tax profit', R.totalProfit, mx,
+    R.totalProfit>0?C.blue:C.red,
+    '<span class="muted">on '+fmtK(R.cashIn)+' in</span>', true));
+  const mult = R.cashIn>0 ? (R.totalProfit + R.cashIn)/R.cashIn : 0;
+  $('#decomp').innerHTML = '<div class="trapgrid">'+rows.join('')+'</div><div class="traperr">'+
+    'Equity multiple <b>'+mult.toFixed(2)+'×</b> — every dollar in comes back as '+
+    fmt$(mult)+' over '+R.hold+' years, after tax. '+
+    'Total profit is exactly the sum of the bars above; this is an accounting identity, so if one '+
+    'of them looks wrong, the input that drives it is wrong. Note that <b>appreciation and forced '+
+    'equity are the two you cannot verify in advance</b> — together they are '+
+    fmtK(Math.max(0,R.decomp[2].v) + Math.max(0,R.decomp[3].v))+' of this result.</div>';
+}
+
+/* ---- Figure 4: property vs index -------------------------------------- */
+function drawWealth(){
+  const s = setup($('#wealthC'), 330), c = s.c, W = s.W;
+  const padL=78, padR=16, padT=16, padB=36, plotW=W-padL-padR, plotH=330-padT-padB;
+  const P = R.wealth.map(function(w,i){ return w.prop*defl(i+1); });
+  const I = R.wealth.map(function(w,i){ return w.idx*defl(i+1); });
+  const all = P.concat(I).concat([0]);
+  const mx = Math.max.apply(null, all)*1.06, mn = Math.min(0, Math.min.apply(null, all)*1.1);
+  const n = R.hold;
+  const X = k => padL + (n>1 ? (k-1)/(n-1) : 0.5)*plotW;
+  const Y = v => padT + plotH - (v-mn)/(mx-mn)*plotH;
+  grid(c, W, padL, padR, padT, plotH, mx, mn, fmtK);
+  if(mn<0){ c.strokeStyle=CH().gray; c.beginPath(); c.moveTo(padL,Y(0)); c.lineTo(W-padR,Y(0)); c.stroke(); }
+  const line = function(arr, col, w){
+    c.strokeStyle=col; c.lineWidth=w; c.beginPath();
+    arr.forEach(function(v,k){ k?c.lineTo(X(k+1),Y(v)):c.moveTo(X(k+1),Y(v)); }); c.stroke();
+  };
+  // shade the advantage
+  c.fillStyle = R.advantage>0 ? CH().faint : 'rgba(192,47,34,0.10)';
+  c.beginPath();
+  P.forEach(function(v,k){ k?c.lineTo(X(k+1),Y(v)):c.moveTo(X(k+1),Y(v)); });
+  for(let k=I.length-1;k>=0;k--) c.lineTo(X(k+1), Y(I[k]));
+  c.closePath(); c.fill();
+  line(I, CH().gray, 2);
+  line(P, R.advantage>0?CH().green:CH().red, 2.6);
+  c.fillStyle=CH().gray; c.textAlign='center'; c.textBaseline='top';
+  const step = n>18 ? 5 : (n>9 ? 2 : 1);
+  for(let k=1;k<=n;k++) if(k===1||k===n||k%step===0) c.fillText('Yr '+k, X(k), padT+plotH+8);
+  const D = CH();
+  $('#wealthLegend').innerHTML =
+    '<span><i class="dot" style="background:'+(R.advantage>0?D.green:D.red)+'"></i>Property, net of sale &amp; tax, plus reinvested cash flow</span>'+
+    '<span><i class="dot" style="background:'+D.gray+'"></i>Index fund at '+fmtPct(R.inp.altReturn,1)+', after capital gains</span>'+
+    '<span>'+(R.inp.realDollars?"today's dollars":'nominal dollars')+'</span>';
+}
+
+/* ---- Figure 5: cash flow by year -------------------------------------- */
+function drawCashflow(){
+  const s = setup($('#cfC'), 290), c = s.c, W = s.W;
+  const padL=78, padR=16, padT=16, padB=36, plotW=W-padL-padR, plotH=290-padT-padB;
+  const A = R.yr.map(function(x,i){ return x.cfbt*defl(i+1); });
+  const B = R.yr.map(function(x,i){ return x.cfat*defl(i+1); });
+  const all = A.concat(B).concat([0]);
+  const mx = Math.max.apply(null,all)*1.1, mn = Math.min.apply(null,all)*1.15;
+  const hi = mx===mn ? mx+1 : mx;
+  const Y = v => padT + plotH - (v-mn)/(hi-mn)*plotH;
+  grid(c, W, padL, padR, padT, plotH, hi, mn, fmtK);
+  const n = R.hold, slot = plotW/n, bw = Math.max(3, Math.min(26, slot*0.34));
+  c.strokeStyle=CH().gray; c.beginPath(); c.moveTo(padL,Y(0)); c.lineTo(W-padR,Y(0)); c.stroke();
+  for(let k=0;k<n;k++){
+    const cx = padL + slot*(k+0.5);
+    [A[k], B[k]].forEach(function(v,j){
+      c.fillStyle = v>=0 ? (j?CH().green:CH().blue) : CH().red;
+      const x = cx + (j ? 1 : -bw-1);
+      c.fillRect(x, Math.min(Y(v),Y(0)), bw, Math.abs(Y(v)-Y(0)));
+    });
+  }
+  c.fillStyle=CH().gray; c.textAlign='center'; c.textBaseline='top';
+  const step = n>18 ? 5 : (n>9 ? 2 : 1);
+  for(let k=1;k<=n;k++) if(k===1||k===n||k%step===0) c.fillText(k, padL+slot*(k-0.5), padT+plotH+8);
+  const D=CH();
+  $('#cfLegend').innerHTML =
+    '<span><i class="dot" style="background:'+D.blue+'"></i>Before tax</span>'+
+    '<span><i class="dot" style="background:'+D.green+'"></i>After tax</span>'+
+    '<span><i class="dot" style="background:'+D.red+'"></i>Negative</span>'+
+    '<span>total after tax over '+n+' yrs: '+fmtK(R.sumCF)+'</span>';
+}
+
+/* ---- Figure 6: IRR by hold period ------------------------------------- */
+function drawHold(){
+  const s = setup($('#holdC'), 280), c = s.c, W = s.W;
+  const padL=78, padR=16, padT=16, padB=36, plotW=W-padL-padR, plotH=280-padT-padB;
+  const pts = R.byHold.filter(function(p){ return p.irr!==null && isFinite(p.irr); });
+  if(pts.length < 2){ $('#holdNote').textContent='Not enough of a return stream to plot.'; return; }
+  const vals = pts.map(function(p){return p.irr;}).concat([R.inp.altReturn, 0]);
+  const mx = Math.max.apply(null,vals)*1.12, mn = Math.min.apply(null,vals) - 0.02;
+  const n = R.hold;
+  const X = k => padL + (n>1 ? (k-1)/(n-1) : 0.5)*plotW;
+  const Y = v => padT + plotH - (v-mn)/(mx-mn)*plotH;
+  grid(c, W, padL, padR, padT, plotH, mx, mn, function(v){return (v*100).toFixed(0)+'%';});
+  // the index hurdle
+  c.strokeStyle=CH().gray; c.setLineDash([5,4]); c.beginPath();
+  c.moveTo(padL, Y(R.inp.altReturn)); c.lineTo(W-padR, Y(R.inp.altReturn)); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle=CH().gray; c.textAlign='left'; c.textBaseline='bottom';
+  c.fillText('index alternative '+fmtPct(R.inp.altReturn,1), padL+6, Y(R.inp.altReturn)-4);
+  c.strokeStyle=CH().blue; c.lineWidth=2.6; c.beginPath();
+  pts.forEach(function(p,k){ k?c.lineTo(X(p.y),Y(p.irr)):c.moveTo(X(p.y),Y(p.irr)); }); c.stroke();
+  let best = pts[0];
+  pts.forEach(function(p){ if(p.irr>best.irr) best=p; });
+  c.fillStyle=CH().green; c.beginPath(); c.arc(X(best.y),Y(best.irr),5,0,7); c.fill();
+  c.fillStyle=CH().gray; c.textAlign='center'; c.textBaseline='top';
+  const step = n>18 ? 5 : (n>9 ? 2 : 1);
+  for(let k=1;k<=n;k++) if(k===1||k===n||k%step===0) c.fillText('Yr '+k, X(k), padT+plotH+8);
+  // "Beats the index" is judged on terminal wealth, the same basis as the headline card —
+  // NOT on IRR against the hurdle. The two can disagree, and the note below says why.
+  const ahead = R.wealth.filter(function(w){ return w.prop > w.idx; });
+  const irrClears = pts.filter(function(p){ return p.irr>=R.inp.altReturn; });
+  let note = 'Peak after-tax IRR is <b>'+fmtIRR(best.irr)+' at year '+best.y+'</b>. ';
+  note += (ahead.length===0
+    ? 'At no hold length does it end ahead of the index — the transaction costs are never earned '+
+      'back at these assumptions.'
+    : 'It first ends ahead of the index in <b>year '+ahead[0].y+'</b>. '+
+      'Selling before then means the '+fmtPct(R.inp.sellCost,0)+' selling cost and the '+
+      fmtPct(R.inp.closingPct,0)+' closing cost have not been earned back yet — which is why '+
+      'short holds on rental property usually lose money even in a rising market.');
+  // reconcile the two measures when they point opposite ways
+  if(ahead.length>0 && irrClears.length===0){
+    note += ' Note the apparent contradiction: the IRR sits <em>below</em> the '+
+      fmtPct(R.inp.altReturn,1)+' line yet the property still ends ahead. That is not an error — '+
+      'IRR assumes every dollar of rent is reinvested at the IRR itself, while the wealth '+
+      'comparison reinvests it at the index return. When cash flow is small, the two measures can '+
+      'disagree. Trust the dollar figure over the percentage.';
+  } else if(ahead.length===0 && irrClears.length>0){
+    note += ' The IRR clears the hurdle but the property still ends behind in dollars, because IRR '+
+      'flatters a deal that returns capital early and this one does not compound it fast enough. '+
+      'Trust the dollar figure over the percentage.';
+  }
+  $('#holdNote').innerHTML = note;
+}
+
+/* ---- Figure 7: tornado sensitivity ------------------------------------ */
+function drawTornado(){
+  const base = R.inp;
+  const advOf = function(o){
+    return model(Object.assign({}, base, o), {byHold:false}).advantage;
+  };
+  const swing = function(label, a, b, note){
+    const va=advOf(a), vb=advOf(b);
+    return {label:label, lo:Math.min(va,vb), hi:Math.max(va,vb), range:Math.abs(va-vb), note:note||''};
+  };
+  const rows = [
+    swing('Appreciation (±2 pp)', {appreciation:base.appreciation-0.02}, {appreciation:base.appreciation+0.02}),
+    swing('Rent (±10%)', {rent:base.rent*0.9}, {rent:base.rent*1.1}),
+    swing('Rent growth (±1 pp)', {rentGrowth:base.rentGrowth-0.01}, {rentGrowth:base.rentGrowth+0.01}),
+    swing('Index alternative (6% vs 10%)', {altReturn:0.06}, {altReturn:0.10}),
+    swing('Interest rate (±1 pp)', {rate:Math.max(0,base.rate-0.01)}, {rate:base.rate+0.01}),
+    swing('All operating expenses (±20%)',
+      {maint:base.maint*0.8, capex:base.capex*0.8, insurance:base.insurance*0.8, propTax:base.propTax*0.8, otherExp:base.otherExp*0.8},
+      {maint:base.maint*1.2, capex:base.capex*1.2, insurance:base.insurance*1.2, propTax:base.propTax*1.2, otherExp:base.otherExp*1.2}),
+    swing('Vacancy (3% vs 12%)', {vacancy:0.03}, {vacancy:0.12}),
+    swing('Down payment (20% vs 40%)', {downPct:0.20}, {downPct:0.40}),
+    swing('Hold period (5 vs 20 yrs)', {hold:5}, {hold:20}),
+    swing('Selling costs (4% vs 9%)', {sellCost:0.04}, {sellCost:0.09}),
+    swing('Marginal tax rate (24% vs 40%)', {ordRate:0.24}, {ordRate:0.40}),
+    swing('Cost segregation (0% vs 30%)', {costSeg:0}, {costSeg:0.30})
+  ].sort(function(a,b){ return b.range-a.range; });
+  const mx = rows[0].range || 1;
+  const C = CH();
+  const html = rows.map(function(r){
+    const flips = r.lo<0 && r.hi>0;
+    return '<div class="trapline"><span class="tl">'+r.label+'</span>'+
+      '<div class="tbar"><div class="tfill" style="width:'+(r.range/mx*100)+'%;background:'+
+      (flips?C.amber:C.gray)+'"></div></div>'+
+      '<span class="tv">'+fmtK(r.range)+'</span><span class="td">'+
+      (flips?'<span style="color:'+C.amber+'">flips the verdict</span>'
+            :'<span class="muted">'+fmtK(r.lo)+' to '+fmtK(r.hi)+'</span>')+'</span></div>';
+  }).join('');
+  const flippers = rows.filter(function(r){ return r.lo<0 && r.hi>0; });
+  $('#tornado').innerHTML = '<div class="trapgrid">'+html+'</div><div class="traperr">'+
+    (flippers.length===0
+      ? 'No single assumption in this range changes the verdict, which is unusual and means the '+
+        'answer is robust to your uncertainty. It does not mean the answer is right — two inputs '+
+        'wrong in the same direction still moves it.'
+      : '<b>'+flippers.length+' input'+(flippers.length>1?'s are':' is')+' powerful enough to change '+
+        'the answer</b>, not just the margin: '+flippers.map(function(f){return f.label.replace(/ \(.*/,'');}).join(', ')+
+        '. Those are the numbers to verify with evidence — a rent roll, three insurance quotes, the '+
+        'county tax record — before you commit money. Everything below them is detail.')+'</div>';
+}
+
+/* ---- Figure 8: stress tests -------------------------------------------- */
+function drawStress(){
+  const base = R.inp, C = CH();
+  const tests = [
+    ['Two extra months vacant, every year', {vacancy: Math.min(0.95, base.vacancy+0.167)}],
+    ['Rents fall 10% and never recover', {rent: base.rent*0.9}],
+    ['Zero appreciation for the whole hold', {appreciation: 0}],
+    ['Prices fall 10% then grow normally', {arv: base.arv*0.9}],
+    ['Insurance doubles', {insurance: base.insurance*2}],
+    ['Property tax reassessed at your price', {reassess:true}],
+    ['Cap rates expand 100bps at exit', {exitMethod:'cap', exitCap: base.exitCap+0.01}],
+    ['You have to hire a manager at 10%', {mgmt: Math.max(base.mgmt, 0.10)}],
+    ['Maintenance and CapEx run 50% over', {maint: base.maint*1.5, capex: base.capex*1.5}],
+    ['You sell in year 3, not '+base.hold, {hold: 3}],
+    ['Rate 1.5 pp higher than you assumed', {rate: base.rate+0.015}]
+  ];
+  const rows = tests.map(function(t){
+    const m = model(Object.assign({}, base, t[1]), {byHold:false});
+    return {label:t[0], adv:m.advantage, cf:m.yr[0].cfat/12, dscr:m.dscr,
+            delta:m.advantage - R.advantage};
+  });
+  const mx = Math.max.apply(null, rows.map(function(r){return Math.abs(r.delta);})) || 1;
+  const html = rows.map(function(r){
+    const survives = r.adv > 0;
+    return '<div class="trapline"><span class="tl">'+r.label+'</span>'+
+      '<div class="tbar"><div class="tfill" style="width:'+(Math.abs(r.delta)/mx*100)+
+      '%;background:'+(survives?C.green:C.red)+'"></div></div>'+
+      '<span class="tv" style="color:'+(survives?C.green:C.red)+'">'+fmtK(r.adv)+'</span>'+
+      '<span class="td"><span class="muted">'+fmt$(r.cf)+'/mo'+
+      (isFinite(r.dscr)?' · DSCR '+r.dscr.toFixed(2):'')+'</span></span></div>';
+  }).join('');
+  const broken = rows.filter(function(r){ return r.adv<=0; });
+  const cashNeg = rows.filter(function(r){ return r.cf<0; });
+  $('#stress').innerHTML = '<div class="trapgrid">'+html+'</div><div class="traperr'+
+    (broken.length===0?' ok':(broken.length>5?' no':''))+'">'+
+    'The figure is what the property beats the index by <em>under that stress</em>, everything else '+
+    'unchanged. <b>'+(rows.length-broken.length)+' of '+rows.length+'</b> scenarios still beat the '+
+    'index; <b>'+cashNeg.length+'</b> leave you funding the property out of pocket every month. '+
+    (broken.length===0
+      ? 'That is a genuinely resilient deal — rare, and worth acting on.'
+      : broken.length<=3
+        ? 'Deals fail one at a time, not all at once, so the question is whether you can survive the '+
+          'ones that break it long enough to be right about the rest.'
+        : 'This deal depends on things going roughly as planned. That is not underwriting, it is '+
+          'optimism with a spreadsheet attached.')+'</div>';
+}
+
+/* ---- Figure 9: what you should pay ------------------------------------- */
+function drawOffers(){
+  const base = R.inp;
+  /* Bisection on price. Two things matter here for speed: evaluate the model
+     ONCE per iteration rather than re-evaluating both ends, and stop when the
+     bracket is inside a dollar — there is no meaning in a price to 1e-9. This
+     took the panel from ~970 model runs to ~130. */
+  function solvePrice(fn, target, lo, hi){
+    const f = function(p){
+      return fn(model(Object.assign({}, base,
+        {price:p, arv: base.arv*(p/base.price)}), {byHold:false})) - target;
+    };
+    let a=lo, b=hi, fa=f(a), fb=f(b);
+    if(!isFinite(fa)||!isFinite(fb)||fa*fb>0) return null;
+    while(b-a > 1){
+      const m=(a+b)/2, fm=f(m);
+      if(!isFinite(fm)) return null;
+      if(fa*fm <= 0){ b=m; fb=fm; } else { a=m; fa=fm; }
+    }
+    return (a+b)/2;
+  }
+  const lo = base.price*0.25, hi = base.price*2.5;
+  const targets = [
+    ['Price for 8% cash-on-cash',      solvePrice(m=>m.coc, 0.08, lo, hi), 'the conventional "strong deal" bar'],
+    ['Price for 1.25 DSCR',            solvePrice(m=>m.dscr, 1.25, lo, hi), 'what a lender will finance comfortably'],
+    ['Price for break-even cash flow', solvePrice(m=>m.yr[0].cfbt, 0, lo, hi), 'the point it stops costing you money monthly'],
+    ['Price to satisfy the 1% rule',   base.rent/0.01, 'the classic screen — usually far below asking in 2026'],
+    ['Price to beat the index',        solvePrice(m=>m.advantage, 0, lo, hi), 'above this, the index fund simply wins'],
+    ['Price for positive leverage',    solvePrice(m=>m.capRate-m.loanConst, 0, lo, hi), 'cap rate must exceed the loan constant']
+  ];
+  const C = CH();
+  const rows = targets.map(function(t){
+    const p = t[1];
+    if(p===null || !isFinite(p)) {
+      return '<div class="trapline"><span class="tl">'+t[0]+'</span>'+
+        '<div class="tbar"></div><span class="tv muted">unreachable</span>'+
+        '<span class="td"><span class="muted">'+t[2]+'</span></span></div>';
+    }
+    const disc = (p - base.price)/base.price;
+    return '<div class="trapline"><span class="tl">'+t[0]+'</span>'+
+      '<div class="tbar"><div class="tfill" style="width:'+Math.min(100,p/(base.price*1.6)*100)+
+      '%;background:'+(p>=base.price?C.green:C.red)+'"></div></div>'+
+      '<span class="tv">'+fmt$(p)+'</span><span class="td"><span class="muted">'+
+      (disc>=0?'+':'')+fmtPct(disc,1)+' vs asking</span></span></div>';
+  }).join('');
+  // break-even rent at the asking price — same one-evaluation-per-step bisection,
+  // stopping at the nearest dollar of monthly rent
+  let brRent = null;
+  { const f = r => model(Object.assign({}, base, {rent:r}), {byHold:false}).yr[0].cfbt;
+    let a=0, b=base.rent*4, fa=f(a), fb=f(b);
+    if(fa*fb < 0){
+      while(b-a > 1){ const m=(a+b)/2, fm=f(m);
+        if(fa*fm <= 0){ b=m; fb=fm; } else { a=m; fa=fm; } }
+      brRent=(a+b)/2;
+    } }
+  const beatIdx = targets[4][1];
+  $('#offers').innerHTML = '<div class="trapgrid">'+
+    '<div class="trapline sub"><span class="tl">Asking price</span>'+
+    '<div class="tbar"><div class="tfill" style="width:'+Math.min(100,1/1.6*100)+'%;background:'+C.gray+'"></div></div>'+
+    '<span class="tv">'+fmt$(base.price)+'</span><span class="td"><span class="muted">what you entered</span></span></div>'+
+    rows+'</div><div class="traperr">'+
+    (brRent!==null
+      ? 'At the asking price this property breaks even on cash flow at a rent of <b>'+fmt$(brRent)+
+        '/month</b>. You are underwriting '+fmt$(base.rent)+', which is '+
+        (brRent<=base.rent
+          ? 'a cushion of <b>'+fmtPct((base.rent-brRent)/base.rent,0)+'</b> before it starts costing '+
+            'you money each month'
+          : '<b>'+fmtPct((brRent-base.rent)/base.rent,0)+' short of break-even</b> — the rent would '+
+            'have to rise to that figure before the property stops taking money out of your pocket')+
+        '. Verify it against actual signed leases on the same street, not against listing prices, '+
+        'which are asks and not transactions. '
+      : '')+
+    (beatIdx!==null && isFinite(beatIdx)
+      ? 'The number that matters most is the last one: at anything above <b>'+fmt$(beatIdx)+
+        '</b> the index fund wins, so that — not the list price — is your walk-away line.'
+      : 'No purchase price in the tested range makes this beat the index, which means the problem '+
+        'is the rent, the expenses or the rate, not the price.')+
+    '</div>';
+}
+
+/* ---- Table 1: the pro forma -------------------------------------------- */
+function drawProforma(){
+  const rows = R.yr.map(function(x,i){
+    const d = defl(i+1);
+    const cell = (lab, v, cls) => '<td data-label="'+lab+'" class="'+(cls||'')+'">'+fmt$(v*d)+'</td>';
+    return '<tr><td data-label="Year">'+x.y+'</td>'+
+      cell('Gross rent', x.grossRent)+
+      cell('EGI', x.egi)+
+      cell('OpEx', -x.opexCash, 'neg')+
+      cell('NOI', x.noi)+
+      cell('Debt service', -x.service, x.service>0?'neg':'')+
+      cell('Cash flow', x.cfbt, x.cfbt<0?'neg':'')+
+      cell('Depreciation', x.dep)+
+      cell('Taxable', x.taxable, x.taxable<0?'neg':'')+
+      cell('Tax', x.tax, x.tax<0?'':'neg')+
+      cell('After tax', x.cfat, x.cfat<0?'neg':'')+
+      cell('Loan balance', x.balance)+
+      cell('Value', x.value)+
+      cell('Equity', x.equity)+'</tr>';
+  });
+  const e = R.exit;
+  $('#proBody').innerHTML = rows.join('');
+  $('#proCount').textContent = '('+R.hold+' years'+(R.inp.realDollars?", today's dollars":'')+
+    ' · sale nets '+fmt$(e.netProceeds)+' after '+fmt$(e.sellCosts)+' costs, '+
+    fmt$(e.balance)+' payoff and '+fmt$(e.taxSale)+' tax)';
+}
+
+/* ---- control-group summaries ------------------------------------------- */
+function drawSummaries(){
+  const i = R.inp;
+  const set = (id,t) => { const el=$('#'+id); if(el) el.textContent=t; };
+  set('sumBuy', fmt$(R.down)+' down + '+fmt$(R.closing)+' closing + '+fmt$(i.rehab)+' rehab = '+
+    fmtK(R.cashIn)+' cash in · loan '+fmtK(R.loan0)+
+    (i.ioYears>0 ? ' · '+i.ioYears+'yr interest-only' : ''));
+  set('sumInc', fmt$(i.rent)+'/mo · '+fmtPct(i.vacancy,1)+' vacancy · '+fmtPct(i.rentGrowth,1)+
+    ' growth · '+i.turnover.toFixed(1)+' turns/yr');
+  set('sumOpex', fmt$(R.yr[0].opexCash)+'/yr in year 1 = '+fmtPct(R.oer,0)+' of income · '+
+    fmtPct(i.mgmt,0)+' mgmt · '+fmtPct(i.capex,0)+' CapEx reserve');
+  set('sumExit', fmtPct(i.appreciation,1)+' appreciation · '+
+    (i.exitMethod==='cap' ? fmtPct(i.exitCap,2)+' exit cap' : 'sold on appreciation')+' · '+
+    fmtPct(i.sellCost,0)+' selling cost · sale nets '+fmtK(R.exit.netProceeds));
+  set('sumTax', fmtPct(i.ordRate,0)+' ordinary / '+fmtPct(i.cgRate,0)+' gains · '+
+    (i.lossMode==='active' ? 'active participation, allowance '+fmtK(R.allow)
+     : i.lossMode==='reps' ? 'REPS or STR — losses fully deductible' : 'passive, losses suspended')+
+    (i.costSeg>0 ? ' · '+fmtPct(i.costSeg,0)+' cost seg' : '')+
+    (i.exch1031 ? ' · 1031 exchange' : ''));
+}
+
+/* ---- wiring ------------------------------------------------------------ */
+let timer=null;
+const soon = function(){ clearTimeout(timer); timer=setTimeout(run,140); };
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', theme);
+  $('#themeBtn').textContent = theme==='dark' ? 'Light mode' : 'Dark mode';
+  $('#themeBtn').setAttribute('aria-label','Switch to '+(theme==='dark'?'light':'dark')+' mode');
+}
+function init(){
+  FIELDS.forEach(function(f){
+    const el = $('#'+f[0]); if(!el) return;
+    el.addEventListener(el.type==='checkbox' ? 'change' : (el.tagName==='SELECT'?'change':'input'), soon);
+    if(f[1]==='n' || f[1]==='p'){
+      el.addEventListener('keydown', function(e){ if(['e','E','+'].indexOf(e.key)>=0) e.preventDefault(); });
+    }
+  });
+  // ARV should follow the price unless the user has deliberately moved it
+  let arvTouched = false;
+  $('#arv').addEventListener('input', function(){ arvTouched = true; });
+  ['price','rehab'].forEach(function(id){
+    $('#'+id).addEventListener('input', function(){
+      if(arvTouched) return;
+      const p = parseFloat($('#price').value)||0, r = parseFloat($('#rehab').value)||0;
+      $('#arv').value = Math.round(p + r);
+    });
+  });
+  $$('.grp > summary').forEach(function(s){ s.addEventListener('click', function(){ setTimeout(run,0); }); });
+  $('#themeBtn').addEventListener('click', function(){
+    theme = theme==='dark' ? 'light' : 'dark'; stored = theme;
+    try{ localStorage.setItem('rpa-theme', theme); }catch(e){}
+    applyTheme(); run();
+  });
+  sysDark.addEventListener('change', function(e){
+    if(stored) return; theme = e.matches?'dark':'light'; applyTheme(); run();
+  });
+  window.addEventListener('resize', soon);
+  applyTheme(); run();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+</script>
+</body>
+</html>
