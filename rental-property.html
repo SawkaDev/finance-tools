@@ -227,6 +227,8 @@
       <a href="index.html">S&amp;P Return Simulator</a>
       <a href="roth-vs-traditional.html">Roth vs Traditional</a>
       <span>2026 law</span>
+      <button class="themeBtn" id="shareBtn" type="button">Copy link</button>
+      <button class="themeBtn" id="resetBtn" type="button">Reset</button>
       <button class="themeBtn" id="themeBtn" type="button">Light mode</button>
     </span>
   </div>
@@ -939,6 +941,85 @@ function readInputs(){
   return o;
 }
 
+/* ---- shareable state in the URL --------------------------------------
+   EVERY field is written, not just the ones that differ from the defaults.
+   Encoding only the differences looks tidier but is quietly broken: a link
+   that omitted `rent` because it matched the default would silently resolve
+   to a DIFFERENT rent the day the default in this file changes. A shared
+   link has to be a complete, frozen snapshot of the scenario or it is not
+   worth sharing. ~700 characters is a cheap price for that.
+   Read side accepts ?search or #hash, because history.replaceState is not
+   allowed on file:// in every browser and we fall back to the hash there. */
+let arvTouched = false;
+
+function encodeState(){
+  const out = [];
+  FIELDS.forEach(function(f){
+    const el = $('#'+f[0]); if(!el) return;
+    out.push(f[0]+'='+(f[1]==='b' ? (el.checked?1:0) : encodeURIComponent(el.value)));
+  });
+  return out.join('&');
+}
+function applyState(qs){
+  if(!qs) return false;
+  let p; try{ p = new URLSearchParams(qs); }catch(e){ return false; }
+  let any=false, sawArv=false, sawPrice=false;
+  FIELDS.forEach(function(f){
+    if(!p.has(f[0])) return;
+    const el = $('#'+f[0]); if(!el) return;
+    const v = p.get(f[0]);
+    if(f[1]==='b') el.checked = (v==='1'||v==='true');
+    else el.value = v;
+    if(f[0]==='arv') sawArv=true;
+    if(f[0]==='price'||f[0]==='rehab') sawPrice=true;
+    any=true;
+  });
+  // a link that moves the price but not the ARV would otherwise imply the buyer
+  // instantly lost equity — keep them in step unless the ARV was shared explicitly
+  if(sawPrice && !sawArv){
+    $('#arv').value = Math.round((parseFloat($('#price').value)||0) + (parseFloat($('#rehab').value)||0));
+  }
+  arvTouched = sawArv;
+  return any;
+}
+function shareURL(){
+  const qs = encodeState();
+  return location.origin==='null' || location.protocol==='file:'
+    ? location.href.split(/[?#]/)[0] + (qs?'#'+qs:'')
+    : location.href.split(/[?#]/)[0] + (qs?'?'+qs:'');
+}
+function syncURL(){
+  const qs = encodeState();
+  try{ history.replaceState(null,'', qs ? '?'+qs : location.pathname); }
+  catch(e){ try{ location.hash = qs; }catch(e2){} }
+}
+function copyLink(){
+  const url = shareURL(), btn = $('#shareBtn');
+  const done = function(ok){
+    btn.textContent = ok ? 'Copied' : 'Copy failed';
+    setTimeout(function(){ btn.textContent='Copy link'; }, 1600);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){done(true);}, function(){ legacy(); });
+  } else legacy();
+  function legacy(){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      const ok=document.execCommand('copy'); document.body.removeChild(ta); done(ok);
+    }catch(e){ window.prompt('Copy this link:', url); done(true); }
+  }
+}
+function resetDefaults(){
+  FIELDS.forEach(function(f){
+    const el = $('#'+f[0]); if(!el) return;
+    if(f[1]==='b') el.checked = f[2]; else el.value = f[2];
+  });
+  arvTouched = false;
+  syncURL(); run();
+}
+
 /* ---- canvas helpers -------------------------------------------------- */
 function setup(cv, h){
   const dpr = window.devicePixelRatio||1, W = cv.clientWidth||900;
@@ -976,6 +1057,7 @@ const defl = k => R.inp.realDollars ? 1/Math.pow(1+R.inp.inflation, k) : 1;
 function drawCards(){
   const r1 = R.yr[0];
   const mo = r1.cfat/12, moPre = r1.cfbt/12;
+  const taxMo = -r1.tax/12;   // positive when the loss shelters income, negative when tax is due
   const cocCls = R.coc>=0.08?'good':(R.coc>=0.04?'warn':'bad');
   const dscrCls = R.dscr>=1.25?'good':(R.dscr>=1?'warn':'bad');
   const advCls = R.advantage>0?'good':'bad';
@@ -984,10 +1066,18 @@ function drawCards(){
                  (R.irrAft!==null && R.irrAft>=R.inp.altReturn-0.02)?'warn':'bad';
   const cfCls = mo>=100?'good':(mo>=0?'warn':'bad');
   $('#cards').innerHTML = [
-    '<div class="card '+cfCls+'"><div class="k">Monthly cash flow, after tax</div>'+
+    '<div class="card '+cfCls+'"><div class="k">Monthly cash flow, after tax '+
+      '<span class="info" tabindex="0" role="note" data-tip="The big figure is what this property '+
+      'costs or pays you per month once the tax effect is counted. The line under it shows how it '+
+      'got there: the cash that actually moves through your bank account, then the tax refund or '+
+      'bill that follows. Budget for the before-tax number — that is what leaves your account every '+
+      'month — but judge the deal on the after-tax one.">&#9432;</span></div>'+
       '<div class="v">'+fmt$(mo)+'</div>'+
-      '<div class="cagr">'+fmt$(moPre)+'/mo before tax'+
-        (R.inp.units>1 ? ' · '+fmt$(mo/R.inp.units)+' per unit' : '')+'</div>'+
+      // spell out the bridge rather than showing a second bare dollar figure,
+      // which reads as a competing number instead of an input to this one
+      '<div class="cagr">'+fmt$(moPre)+' cash '+(taxMo>=0?'+ ':'− ')+fmt$(Math.abs(taxMo))+
+        ' tax '+(taxMo>=0?'refund':'owed')+
+        (R.inp.units>1 ? ' · '+fmt$(mo/R.inp.units)+'/unit' : '')+'</div>'+
       '<div class="win">'+(mo<0 ? '&#9888; you fund this property every month'
         : 'year 1, at '+fmtPct(R.inp.vacancy,0)+' vacancy')+'</div></div>',
 
@@ -1589,7 +1679,7 @@ function drawSummaries(){
 
 /* ---- wiring ------------------------------------------------------------ */
 let timer=null;
-const soon = function(){ clearTimeout(timer); timer=setTimeout(run,140); };
+const soon = function(){ clearTimeout(timer); timer=setTimeout(function(){ syncURL(); run(); },140); };
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', theme);
   $('#themeBtn').textContent = theme==='dark' ? 'Light mode' : 'Dark mode';
@@ -1604,7 +1694,6 @@ function init(){
     }
   });
   // ARV should follow the price unless the user has deliberately moved it
-  let arvTouched = false;
   $('#arv').addEventListener('input', function(){ arvTouched = true; });
   ['price','rehab'].forEach(function(id){
     $('#'+id).addEventListener('input', function(){
@@ -1622,7 +1711,15 @@ function init(){
   sysDark.addEventListener('change', function(e){
     if(stored) return; theme = e.matches?'dark':'light'; applyTheme(); run();
   });
+  $('#shareBtn').addEventListener('click', copyLink);
+  $('#resetBtn').addEventListener('click', resetDefaults);
+  // a shared link wins over the defaults; accept ?query or #hash
+  applyState(location.search.slice(1) || location.hash.slice(1));
   window.addEventListener('resize', soon);
+  // back/forward through shared scenarios
+  window.addEventListener('popstate', function(){
+    applyState(location.search.slice(1) || location.hash.slice(1)); run();
+  });
   applyTheme(); run();
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
