@@ -228,6 +228,8 @@
       <a href="roth-vs-traditional.html">Roth vs Traditional</a>
       <span>2026 law</span>
       <button class="themeBtn" id="shareBtn" type="button">Copy link</button>
+      <button class="themeBtn" id="aiCopyBtn" type="button" title="Copy every input, result and table as Markdown, ready to paste into an AI chat">Copy for AI</button>
+      <button class="themeBtn" id="aiDlBtn" type="button" title="Download the same report as a Markdown file">Export .md</button>
       <button class="themeBtn" id="resetBtn" type="button">Reset</button>
       <button class="themeBtn" id="themeBtn" type="button">Light mode</button>
     </span>
@@ -993,24 +995,24 @@ function syncURL(){
   try{ history.replaceState(null,'', qs ? '?'+qs : location.pathname); }
   catch(e){ try{ location.hash = qs; }catch(e2){} }
 }
-function copyLink(){
-  const url = shareURL(), btn = $('#shareBtn');
+function copyText(text, btn, label){
   const done = function(ok){
     btn.textContent = ok ? 'Copied' : 'Copy failed';
-    setTimeout(function(){ btn.textContent='Copy link'; }, 1600);
+    setTimeout(function(){ btn.textContent=label; }, 1600);
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(function(){done(true);}, function(){ legacy(); });
+    navigator.clipboard.writeText(text).then(function(){done(true);}, function(){ legacy(); });
   } else legacy();
   function legacy(){
     try{
       const ta=document.createElement('textarea');
-      ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
+      ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
       document.body.appendChild(ta); ta.select();
       const ok=document.execCommand('copy'); document.body.removeChild(ta); done(ok);
-    }catch(e){ window.prompt('Copy this link:', url); done(true); }
+    }catch(e){ window.prompt('Copy this:', text); done(true); }
   }
 }
+function copyLink(){ copyText(shareURL(), $('#shareBtn'), 'Copy link'); }
 function resetDefaults(){
   FIELDS.forEach(function(f){
     const el = $('#'+f[0]); if(!el) return;
@@ -1677,6 +1679,161 @@ function drawSummaries(){
     (i.exch1031 ? ' · 1031 exchange' : ''));
 }
 
+/* ---- export for AI -----------------------------------------------------
+   One self-describing Markdown report: every input with its on-page label,
+   the headline metrics, the narrative panels exactly as rendered, and the
+   full pro forma as CSV. Numbers come from R; the prose is read back off the
+   page so the export can never disagree with what the user is looking at.
+   The pro forma is always nominal, whatever the today's-dollars toggle says. */
+function buildReport(){
+  clearTimeout(timer); syncURL(); run();
+  const i = R.inp, r1 = R.yr[0], e = R.exit, last = R.wealth[R.hold-1];
+  const txt = el => el ? el.textContent.replace(/\s+/g,' ').trim() : '';
+  const pc  = (v,d) => v===null||!isFinite(v) ? 'n/a' : (v*100).toFixed(d===undefined?2:d)+'%';
+  const num = v => isFinite(v) ? Math.round(v) : '';
+  const num4 = v => v===null||!isFinite(v) ? '' : +v.toFixed(4);
+  const cell = c => String(c).replace(/\|/g,'\\|').replace(/\s+/g,' ').trim();
+  const mdRow = a => '| '+a.map(cell).join(' | ')+' |';
+  const table = (head, rows) => [mdRow(head), mdRow(head.map(function(){return '---';}))]
+    .concat(rows.map(mdRow)).join('\n');
+  const csv = (head, rows) => '```csv\n'+[head].concat(rows).map(function(r){
+    return r.map(function(c){ const s=String(c); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }).join(',');
+  }).join('\n')+'\n```';
+  const bars = sel => $$(sel+' .trapline').map(function(t){
+    return [txt(t.querySelector('.tl')), txt(t.querySelector('.tv')), txt(t.querySelector('.td'))];
+  });
+  const L = [];
+  const h = t => L.push('', '## '+t, '');
+
+  L.push('# Rental property underwriting: export',
+    '', 'Generated '+new Date().toISOString()+'. Reopen this exact scenario: '+shareURL(),
+    '', 'Output of a browser-based rental underwriting model (US tax law as of 2026). It builds a '+
+    'year-by-year pro forma, amortises the loan monthly, runs depreciation and recapture through the '+
+    '§469 passive-loss rules, taxes the sale, and compares the deal against putting the same money, '+
+    'at the same times, into an index fund. All dollar figures are nominal unless stated. Percent '+
+    'inputs are as typed (7.25 means 7.25%). The model\'s method and known simplifications are '+
+    'listed at the end.');
+
+  h('Inputs');
+  L.push(table(['Field', 'Input', 'Value'], FIELDS.map(function(f){
+    const k=f[0], t=f[1], el=$('#'+k); if(!el) return [k, '', ''];
+    let lab = el.type==='checkbox' ? $('label[for="'+k+'"]') : el.closest('.ctl').querySelector('label');
+    if(lab){ lab = lab.cloneNode(true); [].forEach.call(lab.querySelectorAll('.info'), function(x){ x.remove(); }); }
+    const v = t==='b' ? (el.checked?'yes':'no')
+      : el.tagName==='SELECT' ? el.options[el.selectedIndex].text
+      : el.value + (t==='p' ? '%' : '');
+    return [k, txt(lab), v];
+  })));
+
+  h('Purchase, financing and basis');
+  L.push(table(['Item', 'Value'], [
+    ['Purchase price', fmt$(i.price)], ['Value after rehab (ARV)', fmt$(R.value0)],
+    ['Down payment', fmt$(R.down)], ['Loan amount', fmt$(R.loan0)],
+    ['Closing costs', fmt$(R.closing)], ['Loan points', fmt$(R.points)], ['Rehab', fmt$(i.rehab)],
+    ['Total cash invested', fmt$(R.cashIn)],
+    ['Year-1 monthly loan payment', fmt$(R.monthlyPay)],
+    ['Year-1 property tax used', fmt$(R.propTax0)+(i.reassess?' (reassessed at price)':' (as entered)')],
+    ['Depreciable basis', fmt$(R.basis0)], ['Cost-segregated (bonus) basis', fmt$(R.segBasis)],
+    ['$25k passive-loss allowance available', fmt$(R.allow)]
+  ]));
+
+  h('Headline metrics');
+  L.push(table(['Metric', 'Value'], [
+    ['Monthly cash flow, year 1, before tax', fmt$(r1.cfbt/12)],
+    ['Monthly cash flow, year 1, after tax', fmt$(r1.cfat/12)],
+    ['Cap rate (reserves as expense)', pc(R.capRate)],
+    ['Cap rate (broker convention, no reserves)', pc(R.capRateNoRes)],
+    ['Cap rate on all-in cost', pc(R.capAllIn)],
+    ['Loan constant', pc(R.loanConst)],
+    ['Leverage', R.loan0<=0 ? 'all cash' : R.capRate>=R.loanConst ? 'positive' : 'negative'],
+    ['Cash-on-cash, before tax', pc(R.coc)], ['Cash-on-cash, after tax', pc(R.cocAft)],
+    ['DSCR (NOI / debt service)', isFinite(R.dscr)?R.dscr.toFixed(2):'no debt'],
+    ['DSCR, lender convention (rent / PITIA)', isFinite(R.dscrLender)?R.dscrLender.toFixed(2):'n/a'],
+    ['Gross rent multiplier', isFinite(R.grm)?R.grm.toFixed(2):'n/a'],
+    ['1% rule ratio (monthly rent / price)', pc(R.onePct)],
+    ['Operating expense ratio', pc(R.oer)],
+    ['Break-even occupancy', pc(R.breakEvenOcc)],
+    ['IRR before tax, '+R.hold+' yrs', pc(R.irrPre)],
+    ['IRR after tax, '+R.hold+' yrs', pc(R.irrAft)],
+    ['Index alternative return', pc(i.altReturn)],
+    ['Property wealth at year '+R.hold+' (net of sale, tax, plus reinvested cash flow)', fmt$(last.prop)],
+    ['Index wealth at year '+R.hold+' (after capital gains)', fmt$(last.idx)],
+    ['Property advantage vs index', fmt$(R.advantage)],
+    ['Total after-tax profit', fmt$(R.totalProfit)],
+    ['Equity multiple', R.cashIn>0 ? ((R.totalProfit+R.cashIn)/R.cashIn).toFixed(2)+'x' : 'n/a']
+  ]));
+
+  h('Verdict (as shown on the page)');
+  L.push('**'+txt($('#verdictH'))+'**', '', txt($('#verdictBody')));
+
+  h('Screening scorecard');
+  L.push(table(['Test', 'Result', 'Status', 'Rationale'], $$('#scorecard .sc').map(function(s){
+    return [txt(s.querySelector('.n')), txt(s.querySelector('.val')),
+      s.classList.contains('pass')?'pass':s.classList.contains('fail')?'fail':'warn', txt(s.querySelector('.why'))];
+  })));
+
+  h('Sources of after-tax profit over the hold (sums exactly to total profit)');
+  L.push(table(['Component', 'Amount'], R.decomp.map(function(d){ return [d.label, fmt$(d.v)]; })
+    .concat([['Total after-tax profit', fmt$(R.totalProfit)]])));
+
+  h('Sale at year '+R.hold);
+  L.push(table(['Item', 'Value'], [
+    ['Sale price', fmt$(e.salePrice)], ['Selling costs', fmt$(e.sellCosts)], ['Net sale', fmt$(e.netSale)],
+    ['Loan payoff', fmt$(e.balance)], ['Adjusted basis', fmt$(e.adjBasis)], ['Gain', fmt$(e.gain)],
+    ['§1245 recapture (ordinary)', fmt$(e.recap1245)], ['Unrecaptured §1250 gain (max 25%)', fmt$(e.recap1250)],
+    ['Long-term capital gain', fmt$(e.cgTaxable)], ['Suspended losses released', fmt$(e.suspRelease)],
+    ['Tax on sale', fmt$(e.taxSale)], ['Tax deferred by 1031', fmt$(e.deferred)],
+    ['Net proceeds after tax', fmt$(e.netProceeds)]
+  ]));
+
+  h('Year-1 waterfall');
+  L.push(table(['Line', 'Amount', 'Note'], bars('#waterfall')), '', txt($('#waterfall .traperr')));
+
+  h('Sensitivity: swing in advantage vs index when one input moves');
+  L.push(table(['Input range', 'Swing', 'Advantage low to high'], bars('#tornado')), '', txt($('#tornado .traperr')));
+
+  h('Stress tests: advantage vs index under each stress');
+  L.push(table(['Scenario', 'Advantage vs index', 'Year-1 monthly cash flow after tax / DSCR'], bars('#stress')),
+    '', txt($('#stress .traperr')));
+
+  h('Maximum price for each target');
+  L.push(table(['Target', 'Price', 'vs asking'], bars('#offers')), '', txt($('#offers .traperr')));
+
+  h('Hold period');
+  L.push(txt($('#holdNote')));
+
+  h('Year-by-year pro forma (nominal dollars)');
+  L.push('`property_wealth_if_sold` and `index_wealth` are the after-tax values if the property were sold '+
+    'at the end of that year. `irr_if_sold_pct` is the after-tax IRR for that exit year. '+
+    '`suspended_losses` is the §469 carryforward at year end.', '');
+  L.push(csv(['year','gross_rent','vacancy_loss','credit_loss','other_income','egi','property_tax',
+    'insurance','hoa','management','maintenance','capex_reserve','utilities','other_expense','turnover',
+    'opex_cash','noi','noi_excl_reserves','interest','principal','debt_service','loan_balance',
+    'cash_flow_before_tax','depreciation','points_amortization','taxable_income','income_tax',
+    'cash_flow_after_tax','suspended_losses','property_value','equity','property_wealth_if_sold',
+    'index_wealth','irr_if_sold_pct'],
+    R.yr.map(function(x,k){
+      const w = R.wealth[k], b = R.byHold[k];
+      return [x.y, num(x.grossRent), num(x.vacLoss), num(x.credLoss), num(x.other), num(x.egi),
+        num(x.eTax), num(x.eIns), num(x.eHoa), num(x.eMgmt), num(x.eMaint), num(x.eCapex), num(x.eUtil),
+        num(x.eOther), num(x.eTurn), num(x.opexCash), num(x.noi), num(x.noiNoRes), num(x.interest),
+        num(x.principal), num(x.service), num(x.balance), num(x.cfbt), num(x.dep), num(x.pointsAmort),
+        num(x.taxable), num(x.tax), num(x.cfat), num(x.suspended), num(x.value), num(x.equity),
+        num(w.prop), num(w.idx), b && b.irr!==null ? num4(b.irr*100) : ''];
+    })));
+
+  h('Method and known simplifications (from the page)');
+  $$('.foot p').forEach(function(p){ L.push(txt(p), ''); });
+
+  return L.join('\n').replace(/\n{3,}/g,'\n\n').trim()+'\n';
+}
+function downloadText(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/markdown;charset=utf-8'}));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+
 /* ---- wiring ------------------------------------------------------------ */
 let timer=null;
 const soon = function(){ clearTimeout(timer); timer=setTimeout(function(){ syncURL(); run(); },140); };
@@ -1712,6 +1869,12 @@ function init(){
     if(stored) return; theme = e.matches?'dark':'light'; applyTheme(); run();
   });
   $('#shareBtn').addEventListener('click', copyLink);
+  $('#aiCopyBtn').addEventListener('click', function(){
+    copyText(buildReport(), $('#aiCopyBtn'), 'Copy for AI');
+  });
+  $('#aiDlBtn').addEventListener('click', function(){
+    downloadText('rental-analysis-'+new Date().toISOString().slice(0,10)+'.md', buildReport());
+  });
   $('#resetBtn').addEventListener('click', resetDefaults);
   // a shared link wins over the defaults; accept ?query or #hash
   applyState(location.search.slice(1) || location.hash.slice(1));
